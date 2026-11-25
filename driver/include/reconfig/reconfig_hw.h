@@ -31,14 +31,21 @@
 #include "reconfig_mem.h"
 
 /**
+ * @brief Checks that a bitstream length fits its buffer
+ *
+ * @param buff bitstream buffer, obtained from reconfig_buff_get
+ * @param len bitstream length in bytes
+ * @return 0 if the length fits, -EINVAL if it is 0 or larger than the buffer
+ */
+int reconfig_check_len(struct reconfig_buff_metadata *buff, uint64_t len);
+
+/**
  * @brief Triggers the reconfiguration process
  * 
  * @param device reconfig_device to be reconfigured (corresponding to the actual physical FPGA we want to reconfigure)
- * @param vaddr bitstream buffer virtual address; obtained from alloc_buffer and mmap
- * @param pid host process ID
- * @param crid configuration ID 
- * @return reconfiguration started successfuly or not
+ * @param buff bitstream buffer, obtained from reconfig_buff_get
+ * @param len bitstream length in bytes, checked with reconfig_check_len
  */
-int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len, pid_t pid, uint32_t crid);
+void reconfigure_start(struct reconfig_dev *device, struct reconfig_buff_metadata *buff, uint64_t len);
 
 #endif // _RECONFIG_HW_H_

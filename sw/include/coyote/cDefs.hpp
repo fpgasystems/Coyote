@@ -103,9 +103,6 @@ namespace coyote {
 // Allocate memory for partial reconfiguration
 #define IOCTL_ALLOC_HOST_RECONFIG_MEM       _IOW('P', 1, unsigned long)
 
-// Free memory allocated used for partial reconfiguration
-#define IOCTL_FREE_HOST_RECONFIG_MEM        _IOW('P', 2, unsigned long)
-
 // Trigger reconfiguration of a vFPGA
 #define IOCTL_RECONFIGURE_APP               _IOW('P', 3, unsigned long)
 

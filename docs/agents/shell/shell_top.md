@@ -312,7 +312,7 @@ Summary table: [../coyote_top.md#ultrascale-vs-versal-summary](../coyote_top.md#
 - Completion counters are per **pid** (6 bits, `N_CTID_MAX=64`); wrap/clear with `CTRL_CLR_STAT`. RDMA counters (non-AVX 0x400 range) and `STAT_RDMA_REG` (128) in SW.
 - `N_SCHAN` (2) vs `N_CHAN`: `shell_split_data` is instantiated only for `N_CHAN > N_SCHAN`, which does not occur today; keep it as the guarded branch when adding shell channels (also needs a mux on the static side).
 - `m_decouple` and `m_rst_pr`: only decouple is consumed (`dcpl_select`, default `N_STAGES=1` register, then `decouple_uclk` CDC). Decouple gates `axis/dma/axil/meta` interfaces of the user wrapper; the AXI `ctrl` window of the *user CSRs* is decoupled but `cnfg_slave` and TLB windows are not.
-- Known defects in this area: [known_issues.md](../known_issues.md) (`REG-*`, `REC-01`, `REC-03`).
+- Known defects in this area: [known_issues.md](../known_issues.md) (`REG-*`, `REC-03`).
 - The published Coyote v1 thesis (ch.4), OSDI'20 paper and Coyote v2 paper (external) describe the older Coyote v1 layout (per-vFPGA `ctrl` with `cnfg`/`ctrl` regs in a single slave, "static" owning TLB); this file follows the code.
 
 ---

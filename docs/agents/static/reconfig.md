@@ -88,7 +88,7 @@ host mem --QDMA MM H2C queue 0 (bypass, MM channel 0, NoC_1)--> CPM_PCIE_NOC_1
 | `ST_WAIT_NEXT` | `rsp.done=1`; wait for next descriptor from `static_slave` |
 | `ST_WAIT_EOS` | `eos_ctrl = eos_pmc`; return to `ST_IDLE` when `eos_pmc` |
 
-- No DMA error handling: `pr_cmd_done` (status `op==3`, `qid==0`, no error bit) is statistics only; completion is **solely** `eos_pmc`. A failed/corrupt PDI therefore hangs the driver waiting for the IRQ (no timeout).
+- No DMA error handling: `pr_cmd_done` (status `op==3`, `qid==0`, no error bit) is statistics only; completion is **solely** `eos_pmc`. A failed/corrupt PDI is therefore only caught by the driver's timeout (`CYT_RCNFG_TIMEOUT_MS`, see [driver.md#reconfiguration](../driver.md#reconfiguration)).
 - `eos_time` is unused (left open); `PR_EOST_REG` is meaningless on Versal.
 - `pr_stats.axis_rd` tied 0: PR data bypasses the fabric.
 - The descriptor port is `qdmaH2CDescMM` ([lynx_intf.sv](../../../hw/hdl/pkg/lynx_intf.sv)), connected to `versal_cips_0/dmaX_h2c_byp_in_mm_0`; MM channel 1 and C2H MM are tied off.
@@ -105,11 +105,11 @@ Registers: static `PR_DCPL_REG_SET/CLR` (0x24/0x28), `PR_EOST_RESET_REG` (0x20);
 
 **Shell reconfiguration (`IOCTL_RECONFIGURE_SHELL`, [reconfig_ops.c](../../../driver/src/reconfig/reconfig_ops.c)):**
 
-1. `mutex_lock(rcnfg_lock)`.
+1. `mutex_lock(rcnfg_lock)`. Returns `-EIO` if an earlier reconfiguration timed out.
 2. `shell_pci_remove()`: disable vFPGA IRQs (US+), free vFPGA char devices, card memory, sysfs, HMM chunks.
 3. `stat_cnfg->reconfig_dcpl_set = 1` (static decouple).
 4. `reconfigure_start()` pushes descriptors; PR data flows.
-5. `wait_event_interruptible(waitqueue_rcnfg, wait_rcnfg == FLAG_SET)` (woken by `reconfig_isr`); clear flag.
+5. `wait_event_timeout(waitqueue_rcnfg, wait_rcnfg == FLAG_SET, CYT_RCNFG_TIMEOUT_MS)` (woken by `reconfig_isr`); clear flag. On a timeout the ioctl returns `-ETIMEDOUT` and skips steps 6-8: see [driver.md#reconfiguration](../driver.md#reconfiguration).
 6. `reconfig_eost_reset = 0; = 1` (resets `xresetn`: new shell comes out of reset).
 7. `reconfig_dcpl_clr = 1` (couple).
 8. `shell_pci_init()`: `read_shell_config()` (new `N_REGIONS`, features, TLB geometry), sysfs, card memory, new vFPGA devices, IRQs (`irq_setup(.., false)`; reconfig IRQ stays), US+ `vfpga_interrupts_enable`.
@@ -117,11 +117,13 @@ Registers: static `PR_DCPL_REG_SET/CLR` (0x24/0x28), `PR_EOST_RESET_REG` (0x20);
 
 **App reconfiguration (`IOCTL_RECONFIGURE_APP`):**
 
-1. `mutex_lock`.
+1. `mutex_lock`, then the same `-EIO` check.
 2. `shell_cnfg->reconfig_dcpl_app_set = 1 << vfid` (decouple that vFPGA; no vFPGA reset after app PR, REC-03).
-3. `reconfigure_start()`; wait for `reconfig_isr` as above.
-4. `shell_cnfg->reconfig_dcpl_app_clr = 1 << tmp[3]` (see REC-01).
+3. `reconfigure_start()`; wait for `reconfig_isr` as above. On a timeout the ioctl returns `-ETIMEDOUT` and skips step 4, so the vFPGA stays decoupled.
+4. `shell_cnfg->reconfig_dcpl_app_clr = 1 << vfid`.
 5. `mutex_unlock`. No `shell_pci_*` and no `eos_resetn` pulse; the vFPGA device nodes remain.
+
+Before step 1, both paths look up the buffer (else `-ENOENT`) and check the length against it (else `-EINVAL`: 0 or larger than the buffer), so a bad request tears nothing down. The app path also rejects a `vfid` >= `n_fpga_reg` before it decouples.
 
 VIO override (US+ only): `vio_static_decoupling.probe_out0 (pr_slct)=1` makes `decouple`/`eos_resetn` follow the VIO instead of static registers, for hardware debug.
 
@@ -166,18 +168,18 @@ VIO override (US+ only): `vio_static_decoupling.probe_out0 (pr_slct)=1` makes `d
 ### SW -> HW (forward path)
 
 1. **Allocate and load bitstream.** `cRcnfg::reconfigureShell|reconfigureApp(path[, vfid])` ([cRcnfg.cpp](../../../sw/src/cRcnfg.cpp)) -> `readBitstream()`: file size -> `n_pages = ceil(len/2MB)` -> `getMem({PRM, n_pages})`:
-   - `ioctl(fd, IOCTL_ALLOC_HOST_RECONFIG_MEM, {n_pages, pid, crid})` -> `reconfig_dev_ioctl` -> [`alloc_reconfig_buffer`](../../../driver/src/reconfig/reconfig_mem.c): `alloc_pages(GFP_ATOMIC, order 9)` per 2 MB page, `dma_map_single(..., DMA_TO_DEVICE)` -> `hpages[]` (bus addresses), saved in `device->curr_buff`.
-   - `mmap(NULL, (n_pages+1)*2MB, fd, MMAP_RECONFIG)` -> `reconfig_dev_mmap`: aligns vaddr to 2 MB, inserts `reconfig_buff_metadata {vaddr, pid, crid, n_pages, pages, hpages}` into `reconfig_buffs_map` (hash on vaddr), `remap_pfn_range` each page (uncached).
+   - `ioctl(fd, IOCTL_ALLOC_HOST_RECONFIG_MEM, {n_pages, pid, crid})` -> `reconfig_dev_ioctl` -> [`alloc_reconfig_buffer`](../../../driver/src/reconfig/reconfig_mem.c): `alloc_pages(GFP_KERNEL, order 9)` per 2 MB page, `dma_map_single(..., DMA_TO_DEVICE)` -> `hpages[]` (bus addresses), saved in `device->curr_buff`.
+   - `mmap(NULL, (n_pages+1)*2MB, fd, MMAP_RECONFIG)` -> `reconfig_dev_mmap`: aligns vaddr to 2 MB, refuses a mapping smaller than the buffer, `remap_pfn_range` each page (uncached), then inserts `reconfig_buff_metadata {vaddr, pid, crid, n_pages, pages, hpages, device, ref}` into `reconfig_buffs_map` (hash on vaddr).
    - The file is read **byte by byte** into the mapped buffer (`readByte`); a named inter-process mutex `reconfig_mtx` guards alloc+mmap.
 2. **Trigger.** `reconfigureBase(bitstream, vfid)`: `ioctl(fd, IOCTL_RECONFIGURE_APP|SHELL, {vaddr, len, pid, crid[, vfid]})` (`vfid = -1` selects shell).
-3. **Driver.** [`reconfigure_start(device, vaddr, len, pid, crid)`](../../../driver/src/reconfig/reconfig_hw.c) finds the buffer by `(vaddr, pid, crid)`, then for each full 2 MB page writes `reconfig_addr_low/high`, `reconfig_len = 2MB`, then `reconfig_ctrl = 0x1` (`0x7` for the final chunk); a trailing partial page uses `len % 2MB` and `0x7`.
+3. **Driver.** Before `rcnfg_lock`, the ioctl finds the buffer by `(vaddr, pid, crid)` (`reconfig_buff_get`, else `-ENOENT`) and checks `len` against it (`reconfig_check_len`, else `-EINVAL`). [`reconfigure_start(device, buff, len)`](../../../driver/src/reconfig/reconfig_hw.c) then, for each full 2 MB page writes `reconfig_addr_low/high`, `reconfig_len = 2MB`, then `reconfig_ctrl = 0x1` (`0x7` for the final chunk); a trailing partial page uses `len % 2MB` and `0x7`.
    - Throttle: polls `reconfig_ctrl` (FIFO occupancy) while `cmd_sent >= 32`; effectively unthrottled (STA-01).
 4. **HW.** `static_slave` -> FIFO -> `dma_rd_req_int[N_SCHAN]` -> [US+: `xdma_wrapper` -> XDMA H2C channel `N_SCHAN` (= `N_HCHAN-1`, the third channel) -> ICAP] / [Versal: `pr_ctrl_versal` -> QDMA MM q0 -> PMC] (section 2).
-5. **Cleanup.** `cRcnfg::~cRcnfg()` / `freeMem()`: `munmap` + `IOCTL_FREE_HOST_RECONFIG_MEM {aligned vaddr, pid, crid}` -> [`free_reconfig_buffer`](../../../driver/src/reconfig/reconfig_mem.c) (`dma_unmap_single`, `__free_pages`, `vfree`, `hash_del`). Buffers are only released in `~cRcnfg` or an explicit `freeMem` (SW-07, SW-08).
+5. **Cleanup.** `cRcnfg::~cRcnfg()` / `freeMem()`: `munmap` -> `reconfig_vma_close` -> [`reconfig_buff_put`](../../../driver/src/reconfig/reconfig_mem.c). The last reference frees the buffer (`hash_del`, `dma_unmap_single`, `__free_pages`, `vfree`, `kfree`). Process exit unmaps too, so a killed process frees its buffers. `cRcnfg` issues: SW-07, SW-08.
 
 ### HW -> SW (reverse path)
 
-`eos` (US+: `pr_cmplt`; Versal: `eos_pmc`) -> `static_slave.PR_DONE` -> `pr_irq` = `usr_irq[15]` -> XDMA user IRQ 15 / QDMA `usr_irq_vec=15` -> MSI-X vector 15 (`FPGA_RECONFIG_IRQ_VECTOR`) -> [`reconfig_isr`](../../../driver/src/reconfig/reconfig_isr.c): `spin_lock_irqsave(irq_lock)`, `atomic_set(wait_rcnfg, FLAG_SET)`, `wake_up_interruptible(waitqueue_rcnfg)`, write `reconfig_ctrl = RECONFIG_CTRL_IRQ_CLR_PENDING` -> the sleeping `reconfig_dev_ioctl` resumes (decouple release, shell re-init) -> `ioctl` returns -> `cRcnfg` returns. No eventfd / user callback is involved; the call is synchronous.
+`eos` (US+: `pr_cmplt`; Versal: `eos_pmc`) -> `static_slave.PR_DONE` -> `pr_irq` = `usr_irq[15]` -> XDMA user IRQ 15 / QDMA `usr_irq_vec=15` -> MSI-X vector 15 (`FPGA_RECONFIG_IRQ_VECTOR`) -> [`reconfig_isr`](../../../driver/src/reconfig/reconfig_isr.c): `spin_lock_irqsave(irq_lock)`, `atomic_set(wait_rcnfg, FLAG_SET)`, `wake_up(waitqueue_rcnfg)`, write `reconfig_ctrl = RECONFIG_CTRL_IRQ_CLR_PENDING` -> the sleeping `reconfig_dev_ioctl` resumes (decouple release, shell re-init) -> `ioctl` returns -> `cRcnfg` returns. No eventfd / user callback is involved; the call is synchronous.
 
 IRQ registration: `irq_setup(bd_data, pdev, enable_reconfig_irq=true)` at probe (`request_irq(pci_irq_vector(15), reconfig_isr, ..., bd_data->reconfig_dev)`); US+ also `reconfig_interrupt_enable()` (`user_int_enable_w1s = 0x8000`) and `write_msix_vectors()`.
 
@@ -194,7 +196,6 @@ IRQ registration: `irq_setup(bd_data, pdev, enable_reconfig_irq=true)` at probe 
 | shell `reconfig_dcpl_app_set/clr` (0x48/0x50) | `shell_slave` `CTRL_DP_REG_SET/CLR` -> `dynamic_top` decouplers | `IOCTL_RECONFIGURE_APP` | - |
 | `usr_irq[15]` | `pr_irq` | `reconfig_isr` | blocks `ioctl` |
 | `IOCTL_ALLOC_HOST_RECONFIG_MEM` `_IOW('P',1)` | - | `alloc_reconfig_buffer` | `cRcnfg::getMem` |
-| `IOCTL_FREE_HOST_RECONFIG_MEM` `_IOW('P',2)` | - | `free_reconfig_buffer` | `cRcnfg::freeMem` |
 | `IOCTL_RECONFIGURE_APP` `_IOW('P',3)` | - | `reconfig_dev_ioctl` | `reconfigureApp` / `cSched` |
 | `IOCTL_RECONFIGURE_SHELL` `_IOW('P',4)` | - | `reconfig_dev_ioctl` | `reconfigureShell` |
 | `IOCTL_PR_CNFG` `_IOR('P',5)` | `pr_cnfg` (shell) | returns `bd_data->en_pr` | [`cSched::cSched`](../../../sw/src/cSched.cpp) -> `fcnfg.en_pr` |
@@ -216,11 +217,11 @@ See [../driver.md](../driver.md#reconfiguration) and [../software.md](../softwar
 - Shell PR changes `N_REGIONS`/features: the driver re-reads shell config, and stale user-space `cThread` handles on old vFPGAs are invalid after `reconfigureShell`.
 - `reconfigureShell` on a build with `en_shell_pblock=0` fails in the driver (`-1`); on Versal builds with `EN_PR=1` the PDI for the shell is not generated (examples/10 README).
 - Both `cRcnfg` instances and `cSched` open `/dev/coyote_fpga_<n>_reconfig`; only one reconfiguration is processed at a time per device (`rcnfg_lock`).
-- Known defects in this area: [known_issues.md](../known_issues.md) (`REC-*`, `STA-01`, `DRV-04`, `DRV-05`, `DRV-06`, `SW-07`, `SW-08`).
+- Known defects in this area: [known_issues.md](../known_issues.md) (`REC-*`, `STA-01`, `DRV-15`, `SW-07`, `SW-08`).
 
 ## How to modify / extend
 
-- **Change PR throughput/robustness (driver):** see STA-01, REC-02 and REC-05 (throttle, error-path unlock, wait timeout) in [reconfig_hw.c](../../../driver/src/reconfig/reconfig_hw.c) / [reconfig_ops.c](../../../driver/src/reconfig/reconfig_ops.c).
+- **Change PR throughput/robustness (driver):** see STA-01 (throttle) in [reconfig_hw.c](../../../driver/src/reconfig/reconfig_hw.c) / [reconfig_ops.c](../../../driver/src/reconfig/reconfig_ops.c).
 - **Add a timeout/error status for Versal PR:** extend `pr_ctrl_versal` to consume `s_qdma_h2c_sts` error bits and expose them in a new `static_slave` status bit (and `PR_STAT_REG`), then read in `reconfig_dev_ioctl`.
 - **Change ICAP clock/width:** edit `clk_wiz_0` outputs in [cr_pci.tcl](../../../hw/bd/ultrascale_plus/cr_pci.tcl) (`pclk` 200 MHz), the `pr_*` IPs in [pci_infrastructure.tcl](../../../scripts/ip_inst/pci_infrastructure.tcl); `EOS_TIME` scales with `pclk`. Requires a static rebuild.
 - **Add a vFPGA reconfiguration config:** raise `N_CONFIG`, add `VFPGA_C<i>_<j>` entries in `load_apps(...)` ([examples/10_app_reconfiguration/hw/CMakeLists.txt](../../../examples/10_app_reconfiguration/hw/CMakeLists.txt)), ensure `FPLAN_PATH` has pblocks for all `N_REGIONS`.

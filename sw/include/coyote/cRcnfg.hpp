@@ -56,7 +56,7 @@ using bitstream_t = std::pair<void*, uint32_t>;
  *  - Map the allocated memory to the user-space (using reconfig_mmap from the Coyote driver)
  *	- Load the bitsream from disk and store it to the allocated memory
  * 	- Trigger reconfiguration by writing the memory to FPGA memory and asserting the correct registers
- *  - Once complete, release the allocated memory (void freeMem, internally calling the Coyote driver)
+ *  - Once complete, release the allocated memory (void freeMem unmaps it, and the driver frees it on the last unmap)
  */
 class cRcnfg {
 
@@ -137,6 +137,7 @@ public:
 	 * Loads the partial bitstream into the internal memory and triggers reconfiguration
 	 * 
 	 * @param bitstream_path Path to partial bitstream (typically shell_top.bin inside build/bitstreams)
+	 * @note Throws if reconfiguration does not complete within 10 s; after that, all reconfigurations fail until the FPGA is reprogrammed
 	 */
 	void reconfigureShell(std::string bitstream_path);
 
@@ -146,6 +147,7 @@ public:
 	 * 
 	 * @param bitstream_path Path to partial bitstream (typically shell_top.bin inside build/bitstreams)
 	 * @param vfid vFPGA ID to be reconfigured
+	 * @note Throws if reconfiguration does not complete within 10 s; after that, all reconfigurations fail until the FPGA is reprogrammed
 	 */
 	 void reconfigureApp(std::string bitstream_path, int vfid);
 };

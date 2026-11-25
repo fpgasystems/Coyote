@@ -679,7 +679,7 @@ int setup_reconfig_device(struct bus_driver_data *data) {
     hash_init(reconfig_buffs_map);
     mutex_init(&data->reconfig_dev->rcnfg_lock);
     spin_lock_init(&data->reconfig_dev->irq_lock);
-    spin_lock_init(&data->reconfig_dev->mem_lock);
+    mutex_init(&data->reconfig_dev->mem_lock);
     init_waitqueue_head(&data->reconfig_dev->waitqueue_rcnfg);
     atomic_set(&data->reconfig_dev->wait_rcnfg, FLAG_CLR);
 
@@ -711,6 +711,11 @@ end:
 }
 
 void teardown_reconfig_device(struct bus_driver_data *data) {
+    // The reconfig IRQ is freed, so a timed-out reconfiguration can no longer complete
+    if (data->reconfig_dev->stalled_buff) {
+        reconfig_buff_put(data->reconfig_dev->stalled_buff);
+    }
+
     device_destroy(data->reconfig_class, MKDEV(data->reconfig_major, 0));
     cdev_del(&data->reconfig_dev->cdev);
     dbg_info("reconfig device deleted\n");

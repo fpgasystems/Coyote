@@ -743,35 +743,20 @@ end:
 void pci_remove(struct pci_dev *pdev) {
     struct bus_driver_data *bd_data = (struct bus_driver_data *) dev_get_drvdata(&pdev->dev);
 
-    // Free HMM chunks
-    #ifdef HMM_KERNEL    
-        free_mem_regions(bd_data);
-        dbg_info("freed svm private pages");
-    #endif
+    // A shell reconfiguration that timed out has already removed the shell
+    if (!bd_data->reconfig_dev->shell_removed) {
+        shell_pci_remove(bd_data);
+    }
 
-    // Disable and remove interrupts
-    vfpga_interrupts_disable(bd_data);
+    // Disable and remove the reconfiguration interrupt
     reconfig_interrupt_disable(bd_data);
-    irq_teardown(bd_data, true);
-    dbg_info("interrupts disabled\n");
-
-    // Clear and release vFPGA devices 
-    teardown_vfpga_devices(bd_data);
-    free_vfpga_devices(bd_data);
-    dbg_info("vfpga devices released\n");
+    free_irq(bd_data->irq_entry[FPGA_RECONFIG_IRQ_VECTOR].vector, bd_data->reconfig_dev);
+    dbg_info("reconfiguration interrupt disabled\n");
 
     // Clear and release reconfiguration device
     teardown_reconfig_device(bd_data);
     free_reconfig_device(bd_data);
     dbg_info("reconfig device released\n");
-
-    // Deallocate card resources
-    free_card_resources(bd_data);
-    dbg_info("card memory resources released\n");
-
-    // Remove sysfs entry
-    remove_sysfs_entry(bd_data);
-    dbg_info("sysfs remove\n");
 
     // Remove XDMA engines
     remove_engines(bd_data);

@@ -36,6 +36,8 @@ coyote::cRcnfg rcnfg(0);
 rcnfg.reconfigureShell(bitstream_path);
 ```
 
+**NOTE:** If reconfiguration does not complete within 10 s (e.g., a corrupt bitstream), `reconfigureShell` throws and all further reconfigurations fail until the FPGA is reprogrammed and the driver is reloaded.
+
 ## Expected results
 To run this example, you need to provide a path to the vector addition partial bitstream. An example of this would be (adjust paths as needed):
 ```bash

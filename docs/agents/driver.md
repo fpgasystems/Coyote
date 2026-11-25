@@ -82,7 +82,7 @@ Platform split ([UltraScale+ vs Versal summary](coyote_top.md#ultrascale-vs-vers
 13. `alloc_reconfig_device` + `setup_reconfig_device`; `alloc_vfpga_devices` + `setup_vfpga_devices` (see below).
 14. `irq_setup(..., enable_reconfig_irq=true)`; US+ additionally `reconfig_interrupt_enable` + `vfpga_interrupts_enable`.
 
-`pci_remove` undoes in reverse (disable IRQs, teardown vFPGA devs, reconfig dev, card resources, sysfs, engines/queues, BARs, regions, MSI-X).
+`pci_remove` undoes in reverse: `shell_pci_remove` (skipped if `reconfig_dev.shell_removed`, see [Reconfiguration](#reconfiguration)), reconfig IRQ, reconfig dev, engines/queues, BARs, regions, MSI-X.
 
 **Shell reconfiguration re-init**: `shell_pci_remove` / `shell_pci_init` ([pci_xdma.c](../../driver/src/platform/pci_xdma.c)) redo steps 10-12 + vFPGA devices + vFPGA IRQs (`enable_reconfig_irq=false`) while keeping BARs, DMA engines, reconfig device and reconfig IRQ alive. **Hazard** (REC-06): close all cThreads before shell reconfiguration. Called from `IOCTL_RECONFIGURE_SHELL`. The shell layout (n_regions, TLB geometry, features) can change, hence everything derived from `shell_cnfg` is rebuilt.
 
@@ -133,7 +133,6 @@ Platform split ([UltraScale+ vs Versal summary](coyote_top.md#ultrascale-vs-vers
 | # | Name | Args | Handler / HW block |
 |---|---|---|---|
 | 1 | `ALLOC_HOST_RECONFIG_MEM` | `[0]=n_pages(2 MB),[1]=pid,[2]=crid` | `alloc_reconfig_buffer` ([reconfig_mem.c](../../driver/src/reconfig/reconfig_mem.c)): `alloc_pages(order 9)` x n, `dma_map_single`; max `MAX_RECONFIG_BUFF_NUM`=128; only one un-mmapped buffer at a time (`curr_buff`) |
-| 2 | `FREE_HOST_RECONFIG_MEM` | `[0]=vaddr,[1]=pid,[2]=crid` | `free_reconfig_buffer` |
 | 3 | `RECONFIGURE_APP` | `[0]=vaddr,[1]=len,[2]=pid,[3]=crid,[4]=vfid` | requires `en_pr`; `rcnfg_lock`; `shell_cnfg->reconfig_dcpl_app_set = 1<<vfid`; `reconfigure_start`; wait `wait_rcnfg`; `reconfig_dcpl_app_clr` |
 | 4 | `RECONFIGURE_SHELL` | `[0..3]` as above | requires `en_shell_pblock`; `shell_pci_remove`; `stat_cnfg->reconfig_dcpl_set=1`; `reconfigure_start`; wait; pulse `reconfig_eost_reset` 0->1; `reconfig_dcpl_clr=1`; `shell_pci_init` |
 | 5 | `PR_CNFG` | -> `[0]=en_pr` | cached |
@@ -147,7 +146,7 @@ Platform split ([UltraScale+ vs Versal summary](coyote_top.md#ultrascale-vs-vers
 | `1` `MMAP_CNFG` | vFPGA | non-AVX `cnfg_slave` regs (BAR2 `0x100000+i*0x40000+0x30000`) | 64 KB | [cnfg_slave.sv](../../hw/hdl/shell/cnfg_slave.sv) |
 | `2` `MMAP_CNFG_AVX` | vFPGA | AVX `cnfg_slave_avx` regs (BAR2 `0x1000000+i*0x40000`) | 256 KB | [cnfg_slave_avx.sv](../../hw/hdl/shell/cnfg_slave_avx.sv) |
 | `3` `MMAP_CTRL` | vFPGA | user CSRs, `axi_ctrl` of user logic (BAR2 `0x100000+i*0x40000+0x20000`) | 64 KB | vFPGA `axi_ctrl` ([user/user_top.md](user/user_top.md)) |
-| `0x100` `MMAP_RECONFIG` | reconfig | buffers from `ALLOC_HOST_RECONFIG_MEM`, `remap_pfn_range` per 2 MB page; start aligned up to 2 MB; only valid if `curr_buff.pid == current->pid` | n x 2 MB | host RAM |
+| `0x100` `MMAP_RECONFIG` | reconfig | buffers from `ALLOC_HOST_RECONFIG_MEM`, `remap_pfn_range` per 2 MB page; start aligned up to 2 MB; only valid if `curr_buff.pid == current->pid`; the mapping must cover the whole buffer and cannot be split (partial `munmap`/`mprotect` fail) | n x 2 MB | host RAM |
 
 TLBs are **not** mmapped; only the driver writes them. Exactly one of the CNFG regions is useful per shell build (`en_avx` is a compile-time HW choice, `EN_AVX` in HW and SW must agree - see [software.md](software.md)).
 
@@ -159,13 +158,13 @@ All in [coyote_defs.h](../../driver/include/coyote_defs.h).
 |---|---|
 | `bus_driver_data` | One per PCI function; `devm_kzalloc` in probe. Holds `pci_dev`, BARs (`bar[3]`, `bar_phys_addr`, `bar_len`), DMA engine/queue arrays (`#ifdef` platform), parsed shell config (`n_fpga_reg`, `en_*`, `n_host_axi`, `n_card_axi`, `qsfp`, IP/MAC, `eost`), `stat_cnfg` / `shell_cnfg` ioremaps, `vfpga_dev*` array, `reconfig_dev*`, `cyt_kobj`, `stlb_meta`/`ltlb_meta`, `dif_order_page_*`, `n_pages_in_huge`, `stat_lock`, `card_lock`, MSI-X state, `card_lblocks/sblocks`, `card_huge_offs/card_reg_offs` |
 | `vfpga_dev` | One per vFPGA (array of `n_fpga_reg`); `cdev`, `id`, `ref_cnt`, ioremaps (`fpga_lTlb`, `fpga_sTlb`, `cnfg_regs`), writeback buffer, ctid allocator (`ctid_chunks`, `pid_alloc`, `pid_array[ctid]=hpid`), locks, workqueues, waitqueues + `wait_*` atomics |
-| `reconfig_dev` | One per card; `cdev`, `rcnfg_lock` (mutex), `irq_lock`, `mem_lock`, `waitqueue_rcnfg`/`wait_rcnfg`, `curr_buff` (staging for alloc->mmap handoff) |
+| `reconfig_dev` | One per card; `cdev`, `rcnfg_lock` and `mem_lock` (mutexes), `irq_lock`, `waitqueue_rcnfg`/`wait_rcnfg`, `curr_buff` (staging for alloc->mmap handoff), `curr_buff_owner` (file that allocated it), `shell_removed`, `rcnfg_timed_out`, `stalled_buff` |
 | `tlb_metadata` | Page/key/tag/phys geometry for the small and large TLB; built from `ctrl_cnfg` in `read_shell_config` |
 | `user_pages` | One mapped buffer: `vaddr` (**in 4 KB page numbers**, not bytes), `n_pages` (4 KB units even for huge), `huge`, `host` (1 = data currently on host, 0 = on card), `pages[]` (pinned), `hpages[]` (DMA addrs), `cpages[]` (card addrs), dmabuf fields (`buf`, `dma_attach`, `sgt`), `needs_explicit_sync` |
 | `pf_aligned_desc` | Page-fault window after alignment to TLB page size |
 | `vfpga_irq_pfault` / `vfpga_irq_notify` | `kzalloc(GFP_ATOMIC)` in ISR, carries decoded ISR regs + `work_struct`; freed by worker |
 | `memory_partition` + `chunk` | Card-memory allocator state (circular linked chunk array, `alloc` cursor, `free_chunks`) |
-| `reconfig_buff_metadata` | Bitstream staging buffer: `vaddr`, `pid`, `crid`, `pages[]`, `hpages[]` |
+| `reconfig_buff_metadata` | Bitstream staging buffer: `vaddr`, `pid`, `crid`, `pages[]`, `hpages[]`, `ref` (kref), `device` |
 | `hpid_ctid_pages`, `ctid_entry` | hpid -> list of ctids (per vFPGA) |
 
 Global tables (module-wide, **shared by all cards**, indexed by vfid - at most `MAX_N_REGIONS`=16): `hpid_ctid_map[vfid][hash]` ([vfpga_ops.c](../../driver/src/vfpga/vfpga_ops.c)), `user_buff_map[vfid][ctid][hash]` ([vfpga_gup.c](../../driver/src/vfpga/vfpga_gup.c)), `reconfig_buffs_map[hash]` ([reconfig_mem.c](../../driver/src/reconfig/reconfig_mem.c)), `user_notifier/user_notifier_lock/notification_pending/interrupt_value[vfid][ctid]` ([vfpga_uisr.c](../../driver/src/vfpga/vfpga_uisr.c)).
@@ -211,8 +210,11 @@ Changing a register in RTL requires the matching struct edit here and the `CnfgA
 
 **RTL counterpart**: ICAP/PMC reconfiguration controller, decouplers, EOS: [static/reconfig.md](static/reconfig.md) (`static_slave.sv` PR regs, `dcpl_static.sv`, `pr_ctrl_versal.sv`); app decoupling in `shell_slave.sv`.
 - Files: [reconfig_ops.c](../../driver/src/reconfig/reconfig_ops.c), [reconfig_mem.c](../../driver/src/reconfig/reconfig_mem.c), [reconfig_hw.c](../../driver/src/reconfig/reconfig_hw.c), [reconfig_isr.c](../../driver/src/reconfig/reconfig_isr.c).
-- Sequence (SW `cRcnfg`): `ALLOC_HOST_RECONFIG_MEM` -> `mmap(MMAP_RECONFIG)` -> user `memcpy` bitstream -> `RECONFIGURE_{APP,SHELL}` -> (blocks) -> `munmap` + `FREE_HOST_RECONFIG_MEM`.
-- `reconfigure_start` ([reconfig_hw.c](../../driver/src/reconfig/reconfig_hw.c)): finds buffer by `(vaddr, pid, crid)` in `reconfig_buffs_map`; for each 2 MB page writes `reconfig_addr_low/high`, `reconfig_len`, then `reconfig_ctrl = 0x1` (middle) or `0x7` (last); throttle polls `reconfig_ctrl` against `RECONFIG_THRESHOLD`=32 (STA-01). Completion = reconfig IRQ (vector 15) -> `wait_rcnfg`.
+- Sequence (SW `cRcnfg`): `ALLOC_HOST_RECONFIG_MEM` -> `mmap(MMAP_RECONFIG)` -> user `memcpy` bitstream -> `RECONFIGURE_{APP,SHELL}` -> (blocks) -> `munmap`.
+- Buffer lifetime ([reconfig_mem.c](../../driver/src/reconfig/reconfig_mem.c)): `reconfig_buff_metadata.ref` counts the mappings (`reconfig_vm_ops` `.open`/`.close`, so `fork` and `mremap` are covered) and the reconfiguration in flight (`reconfig_buff_get` in the ioctl). The last `reconfig_buff_put` removes the buffer from `reconfig_buffs_map` and frees it. `reconfig_free_curr_buff` frees a buffer that was never mapped: on a failed `mmap`, and in `reconfig_dev_release` of the file that allocated it (`curr_buff_owner`).
+- Checks: before `rcnfg_lock`, the ioctl finds the buffer by `(vaddr, pid, crid)` in `reconfig_buffs_map` (`reconfig_buff_get`, else `-ENOENT`) and checks the length against it (`reconfig_check_len`, else `-EINVAL`). A bad request returns before anything is torn down or decoupled.
+- `reconfigure_start` ([reconfig_hw.c](../../driver/src/reconfig/reconfig_hw.c)): cannot fail. For each 2 MB page writes `reconfig_addr_low/high`, `reconfig_len`, then `reconfig_ctrl = 0x1` (middle) or `0x7` (last); throttle polls `reconfig_ctrl` against `RECONFIG_THRESHOLD`=32 (STA-01). Completion = reconfig IRQ (vector 15) -> `wait_rcnfg`.
+- Timeout: both ioctls wait with `wait_event_timeout` (`CYT_RCNFG_TIMEOUT_MS`=10000) and return `-ETIMEDOUT`. Nothing is re-coupled and the buffer reference is kept in `reconfig_dev.stalled_buff`, because the FPGA may still read the bitstream; `teardown_reconfig_device` releases it. `reconfig_dev.rcnfg_timed_out` is set and later reconfigurations return `-EIO`, because the stalled bitstream may still be in the PR queue and its completion interrupt would end the next wait. App path: the vFPGA stays decoupled. Shell path: the shell stays removed, `reconfig_dev.shell_removed` is set and `pci_remove` skips `shell_pci_remove`. The FPGA must be reprogrammed.
 - App path (`en_pr`): decouple vFPGA `1<<vfid` via `shell_cnfg->reconfig_dcpl_app_set`; shell path (`en_shell_pblock`): `shell_pci_remove`, decouple whole shell via `stat_cnfg->reconfig_dcpl_set`, after completion reset EOST (`reconfig_eost_reset`) and `shell_pci_init` (re-reads shell config, recreates `/dev/coyote_fpga_*_v*` nodes - processes holding old fds are invalid).
 - US+ has no "done" signal from ICAP: `eost` clocks delay the shell reset release (`reconfig_eost`).
 - SW: [software.md#reconfiguration](software.md#reconfiguration).
@@ -308,10 +310,11 @@ Directory `/sys/kernel/coyote_sysfs_<dev_id>/` created by `create_sysfs_entry` (
 | `bus_driver_data.stat_lock` | spinlock | IP/MAC ioctl setters |
 | `bus_driver_data.card_lock` | spinlock | card chunk allocators |
 | `reconfig_dev.rcnfg_lock` | mutex | one reconfiguration at a time (also guards shell re-init) |
-| `reconfig_dev.mem_lock` / `irq_lock` | spinlock | bitstream buffer alloc/mmap; reconfig ISR |
+| `reconfig_dev.mem_lock` | mutex | `curr_buff`, `reconfig_buffs_map` and the last put of a bitstream buffer. Taken under `mmap_lock` (mmap, VMA close), so no user memory access under it. Never held together with `rcnfg_lock` |
+| `reconfig_dev.irq_lock` | spinlock (irqsave) | reconfig ISR |
 | hardware | - | `change_tlb_lock` (ISR reg bit 6) guards MMU vs. driver TLB writes |
 
-Completion waits use waitqueue + atomic flag (`wait_offload|sync|invldt|rcnfg`), set in the ISR, cleared by the waiter. Invalidation, offload and sync waits use `wait_event_timeout` (uninterruptible); only the reconfiguration wait is still an unchecked `wait_event_interruptible` (REC-05).
+Completion waits use waitqueue + atomic flag (`wait_offload|sync|invldt|rcnfg`), set in the ISR, cleared by the waiter. Invalidation, offload, sync and reconfiguration waits use `wait_event_timeout` (uninterruptible).
 
 ## Gotchas and known issues
 

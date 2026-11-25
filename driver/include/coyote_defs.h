@@ -67,6 +67,7 @@
 #include <linux/sysfs.h>
 #include <linux/fs.h>
 #include <linux/kobject.h>
+#include <linux/kref.h>
 #include <linux/list.h>
 #include <linux/mdev.h>
 #include <linux/vfio.h>
@@ -419,7 +420,6 @@ extern bool en_hmm;
 
 // Reconfiguration IOCTL calls; see reconfig_ops.c for more details
 #define IOCTL_ALLOC_HOST_RECONFIG_MEM _IOW('P', 1, unsigned long)
-#define IOCTL_FREE_HOST_RECONFIG_MEM _IOW('P', 2, unsigned long) 
 #define IOCTL_RECONFIGURE_APP _IOW('P', 3, unsigned long) 
 #define IOCTL_RECONFIGURE_SHELL _IOW('P', 4, unsigned long)
 #define IOCTL_PR_CNFG _IOR('P', 5, unsigned long)
@@ -454,6 +454,7 @@ extern bool en_hmm;
 #define CYT_INVLDT_TIMEOUT_MS 1000
 #define CYT_DMA_TIMEOUT_MS 5000
 #define CYT_POLL_TIMEOUT_MS 2000
+#define CYT_RCNFG_TIMEOUT_MS 10000
 
 // Streaming flags, analogous to the definition in the software; HOST = 1, CARD = 0
 #define CARD_ACCESS 0
@@ -793,6 +794,8 @@ struct pf_aligned_desc {
     bool hugepages;
 };
 
+struct reconfig_dev;
+
 /**
  * @brief Reconfiguration buffer metadata
  *
@@ -802,6 +805,12 @@ struct pf_aligned_desc {
 struct reconfig_buff_metadata {
     /// Hash table entry for easy lookups in reconfig_buffs_map
     struct hlist_node entry;
+
+    /// Mappings and in-flight reconfigurations holding this buffer
+    struct kref ref;
+
+    /// Reconfiguration device this buffer was allocated for
+    struct reconfig_dev *device;
 
     /// Buffer starting virtual address
     uint64_t vaddr;
@@ -1072,7 +1081,7 @@ struct reconfig_dev {
     struct mutex rcnfg_lock;
 
     /// Memory lock, ensuring no conditions occur when allocating buffers for reconfiguration
-    spinlock_t mem_lock;
+    struct mutex mem_lock;
 
     /// Waitqueue for the reconfiguration
     wait_queue_head_t waitqueue_rcnfg;
@@ -1082,6 +1091,18 @@ struct reconfig_dev {
 
     /// The buffer (holding the partial bitstream) currently being used for dynamic reconfiguration
     struct reconfig_buff_metadata curr_buff;
+
+    /// File that allocated curr_buff. Its release frees the buffer if it was never mapped
+    struct file *curr_buff_owner;
+
+    /// Set when a shell reconfiguration timed out: the shell is removed and its state is unknown
+    bool shell_removed;
+
+    /// Set when a reconfiguration timed out: its bitstream may still be in the PR queue, so later reconfigurations are refused
+    bool rcnfg_timed_out;
+
+    /// Buffer held by the reconfiguration that timed out; released in teardown_reconfig_device
+    struct reconfig_buff_metadata *stalled_buff;
 };
 
 /// Placeholder for an empty kobject, used to avoid NULL pointer dereferences when removing the sysfs
