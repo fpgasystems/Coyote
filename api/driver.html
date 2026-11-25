@@ -146,7 +146,8 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#reconfig-hw-h">reconfig_hw.h</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#_CPPv417reconfigure_startP12reconfig_dev8uint64_t8uint64_t5pid_t8uint32_t"><code class="docutils literal notranslate"><span class="pre">reconfigure_start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv418reconfig_check_lenP22reconfig_buff_metadata8uint64_t"><code class="docutils literal notranslate"><span class="pre">reconfig_check_len()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv417reconfigure_startP12reconfig_devP22reconfig_buff_metadata8uint64_t"><code class="docutils literal notranslate"><span class="pre">reconfigure_start()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#reconfig-isr-h">reconfig_isr.h</a><ul>
@@ -154,8 +155,10 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#reconfig-mem-h">reconfig_mem.h</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#_CPPv421alloc_reconfig_bufferP12reconfig_devm5pid_t8uint32_t"><code class="docutils literal notranslate"><span class="pre">alloc_reconfig_buffer()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#_CPPv420free_reconfig_bufferP12reconfig_dev8uint64_t5pid_t8uint32_t"><code class="docutils literal notranslate"><span class="pre">free_reconfig_buffer()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv421alloc_reconfig_bufferP12reconfig_devP4filem5pid_t8uint32_t"><code class="docutils literal notranslate"><span class="pre">alloc_reconfig_buffer()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv423reconfig_free_curr_buffP12reconfig_dev"><code class="docutils literal notranslate"><span class="pre">reconfig_free_curr_buff()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv417reconfig_buff_getP12reconfig_dev8uint64_t5pid_t8uint32_t"><code class="docutils literal notranslate"><span class="pre">reconfig_buff_get()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv417reconfig_buff_putP22reconfig_buff_metadata"><code class="docutils literal notranslate"><span class="pre">reconfig_buff_put()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#reconfig-ops-h">reconfig_ops.h</a><ul>
@@ -1034,20 +1037,33 @@
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric" id="breathe-section-title-functions">Functions</p>
 <dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv417reconfigure_startP12reconfig_dev8uint64_t8uint64_t5pid_t8uint32_t">
-<span id="_CPPv317reconfigure_startP12reconfig_dev8uint64_t8uint64_t5pid_t8uint32_t"></span><span id="_CPPv217reconfigure_startP12reconfig_dev8uint64_t8uint64_t5pid_t8uint32_t"></span><span id="reconfigure_start__reconfig_devP.uint64_t.uint64_t.pid_t.uint32_t"></span><span class="target" id="reconfig__hw_8h_1a939fb54e18aa61ab8ea38f92bd7fdf10"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">reconfigure_start</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">reconfig_dev</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">device</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">vaddr</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">len</span></span>, <span class="n"><span class="pre">pid_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">pid</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">crid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv417reconfigure_startP12reconfig_dev8uint64_t8uint64_t5pid_t8uint32_t" title="Link to this definition"></a><br /></dt>
+<dt class="sig sig-object cpp" id="_CPPv418reconfig_check_lenP22reconfig_buff_metadata8uint64_t">
+<span id="_CPPv318reconfig_check_lenP22reconfig_buff_metadata8uint64_t"></span><span id="_CPPv218reconfig_check_lenP22reconfig_buff_metadata8uint64_t"></span><span id="reconfig_check_len__reconfig_buff_metadataP.uint64_t"></span><span class="target" id="reconfig__hw_8h_1a53a4b95c3e01246dd98237652077c076"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">reconfig_check_len</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">reconfig_buff_metadata</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">buff</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">len</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv418reconfig_check_lenP22reconfig_buff_metadata8uint64_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Checks that a bitstream length fits its buffer. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>buff</strong> – bitstream buffer, obtained from reconfig_buff_get </p></li>
+<li><p><strong>len</strong> – bitstream length in bytes </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>0 if the length fits, -EINVAL if it is 0 or larger than the buffer </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv417reconfigure_startP12reconfig_devP22reconfig_buff_metadata8uint64_t">
+<span id="_CPPv317reconfigure_startP12reconfig_devP22reconfig_buff_metadata8uint64_t"></span><span id="_CPPv217reconfigure_startP12reconfig_devP22reconfig_buff_metadata8uint64_t"></span><span id="reconfigure_start__reconfig_devP.reconfig_buff_metadataP.uint64_t"></span><span class="target" id="reconfig__hw_8h_1a903ea53494b102f6f06cce4c2eab8315"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">reconfigure_start</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">reconfig_dev</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">device</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">reconfig_buff_metadata</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">buff</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">len</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv417reconfigure_startP12reconfig_devP22reconfig_buff_metadata8uint64_t" title="Link to this definition"></a><br /></dt>
 <dd><p>Triggers the reconfiguration process. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>device</strong> – reconfig_device to be reconfigured (corresponding to the actual physical FPGA we want to reconfigure) </p></li>
-<li><p><strong>vaddr</strong> – bitstream buffer virtual address; obtained from alloc_buffer and mmap </p></li>
-<li><p><strong>pid</strong> – host process ID </p></li>
-<li><p><strong>crid</strong> – configuration ID </p></li>
+<li><p><strong>buff</strong> – bitstream buffer, obtained from reconfig_buff_get </p></li>
+<li><p><strong>len</strong> – bitstream length in bytes, checked with reconfig_check_len </p></li>
 </ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>reconfiguration started successfuly or not </p>
 </dd>
 </dl>
 </dd></dl>
@@ -1085,14 +1101,15 @@
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric" id="breathe-section-title-functions">Functions</p>
 <dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv421alloc_reconfig_bufferP12reconfig_devm5pid_t8uint32_t">
-<span id="_CPPv321alloc_reconfig_bufferP12reconfig_devm5pid_t8uint32_t"></span><span id="_CPPv221alloc_reconfig_bufferP12reconfig_devm5pid_t8uint32_t"></span><span id="alloc_reconfig_buffer__reconfig_devP.unsigned-l.pid_t.uint32_t"></span><span class="target" id="reconfig__mem_8h_1a3dcca9f5797eb0036307907c4e9707aa"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">alloc_reconfig_buffer</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">reconfig_dev</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">device</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_pages</span></span>, <span class="n"><span class="pre">pid_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">pid</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">crid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv421alloc_reconfig_bufferP12reconfig_devm5pid_t8uint32_t" title="Link to this definition"></a><br /></dt>
+<dt class="sig sig-object cpp" id="_CPPv421alloc_reconfig_bufferP12reconfig_devP4filem5pid_t8uint32_t">
+<span id="_CPPv321alloc_reconfig_bufferP12reconfig_devP4filem5pid_t8uint32_t"></span><span id="_CPPv221alloc_reconfig_bufferP12reconfig_devP4filem5pid_t8uint32_t"></span><span id="alloc_reconfig_buffer__reconfig_devP.fileP.unsigned-l.pid_t.uint32_t"></span><span class="target" id="reconfig__mem_8h_1a045e052102207d79aa6be3a66aad92ea"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">alloc_reconfig_buffer</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">reconfig_dev</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">device</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv421alloc_reconfig_bufferP12reconfig_devP4filem5pid_t8uint32_t" title="alloc_reconfig_buffer::file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">file</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_pages</span></span>, <span class="n"><span class="pre">pid_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">pid</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">crid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv421alloc_reconfig_bufferP12reconfig_devP4filem5pid_t8uint32_t" title="Link to this definition"></a><br /></dt>
 <dd><p>Allocates host-side, kernel-space reconfiguration buffers. </p>
 <p>In order for partial bitstreams to be loaded onto the FPGA, they need to be written to the ICAP from the driver via PCIe and the XDMA core This function allocates a buffer of sufficient size to hold a partial bitstream for reconfiguration Following this function, the buffer is mapped to the user-space using an mmap call (reconfig_ops.h) Finally, the partial bitstream can then be loaded into this buffer and used to trigger reconfiguration</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>device</strong> – reconfig_device for which the bitstream buffer should be allocated </p></li>
+<li><p><strong>file</strong> – open file of the reconfig_device that requests the buffer </p></li>
 <li><p><strong>n_pages</strong> – number of hugepages required to hold the bitsream; calculated in user-space </p></li>
 <li><p><strong>pid</strong> – host process ID </p></li>
 <li><p><strong>crid</strong> – configuration ID (uniquely identifies the shell bitstream to be loaded) </p></li>
@@ -1105,21 +1122,43 @@
 </dd></dl>
 
 <dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv420free_reconfig_bufferP12reconfig_dev8uint64_t5pid_t8uint32_t">
-<span id="_CPPv320free_reconfig_bufferP12reconfig_dev8uint64_t5pid_t8uint32_t"></span><span id="_CPPv220free_reconfig_bufferP12reconfig_dev8uint64_t5pid_t8uint32_t"></span><span id="free_reconfig_buffer__reconfig_devP.uint64_t.pid_t.uint32_t"></span><span class="target" id="reconfig__mem_8h_1a82af4510c7385765d45c88e12a02164e"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">free_reconfig_buffer</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">reconfig_dev</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">device</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">vaddr</span></span>, <span class="n"><span class="pre">pid_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">pid</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">crid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv420free_reconfig_bufferP12reconfig_dev8uint64_t5pid_t8uint32_t" title="Link to this definition"></a><br /></dt>
-<dd><p>De-allocates host-side, kernel-space reconfiguration buffer. </p>
-<p>Performs the opposite of the function above; to be used when reconfiguration is complete</p>
+<dt class="sig sig-object cpp" id="_CPPv423reconfig_free_curr_buffP12reconfig_dev">
+<span id="_CPPv323reconfig_free_curr_buffP12reconfig_dev"></span><span id="_CPPv223reconfig_free_curr_buffP12reconfig_dev"></span><span id="reconfig_free_curr_buff__reconfig_devP"></span><span class="target" id="reconfig__mem_8h_1a8343919ec7aa0767e461fc0416e5e63b"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">reconfig_free_curr_buff</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">reconfig_dev</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">device</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv423reconfig_free_curr_buffP12reconfig_dev" title="Link to this definition"></a><br /></dt>
+<dd><p>Frees the allocated buffer that has not been mapped to user-space (curr_buff) </p>
+<p>The caller must hold mem_lock</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>device</strong> – reconfig_device that holds the buffer </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv417reconfig_buff_getP12reconfig_dev8uint64_t5pid_t8uint32_t">
+<span id="_CPPv317reconfig_buff_getP12reconfig_dev8uint64_t5pid_t8uint32_t"></span><span id="_CPPv217reconfig_buff_getP12reconfig_dev8uint64_t5pid_t8uint32_t"></span><span id="reconfig_buff_get__reconfig_devP.uint64_t.pid_t.uint32_t"></span><span class="target" id="reconfig__mem_8h_1aa74c365d95dc87c24d34566af1dc6149"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">reconfig_buff_metadata</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">reconfig_buff_get</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">reconfig_dev</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">device</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">vaddr</span></span>, <span class="n"><span class="pre">pid_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">pid</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">crid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv417reconfig_buff_getP12reconfig_dev8uint64_t5pid_t8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Looks up a mapped reconfiguration buffer and takes a reference to it. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>device</strong> – reconfig_device for which the bitstream buffer should be allocated </p></li>
+<li><p><strong>device</strong> – reconfig_device the buffer was allocated for </p></li>
 <li><p><strong>vaddr</strong> – buffer virtual address </p></li>
 <li><p><strong>pid</strong> – host process ID </p></li>
 <li><p><strong>crid</strong> – configuration ID </p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>always 0; check reconfig_mem.c for explanation </p>
+<dd class="field-even"><p>the buffer, to be released with reconfig_buff_put, or NULL if there is no such buffer </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv417reconfig_buff_putP22reconfig_buff_metadata">
+<span id="_CPPv317reconfig_buff_putP22reconfig_buff_metadata"></span><span id="_CPPv217reconfig_buff_putP22reconfig_buff_metadata"></span><span id="reconfig_buff_put__reconfig_buff_metadataP"></span><span class="target" id="reconfig__mem_8h_1a4a92b6dcd141236c019dda096bbfc52f"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">reconfig_buff_put</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">reconfig_buff_metadata</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">buff</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv417reconfig_buff_putP22reconfig_buff_metadata" title="Link to this definition"></a><br /></dt>
+<dd><p>Drops a reference to a reconfiguration buffer. The last one frees the buffer. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>buff</strong> – buffer obtained from reconfig_dev_mmap or reconfig_buff_get </p>
 </dd>
 </dl>
 </dd></dl>

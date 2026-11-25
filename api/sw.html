@@ -934,7 +934,7 @@
 <li><p>Trigger reconfiguration by writing the memory to FPGA memory and asserting the correct registers</p></li>
 </ul>
 </p></li>
-<li><p>Once complete, release the allocated memory (void freeMem, internally calling the Coyote driver) </p></li>
+<li><p>Once complete, release the allocated memory (void freeMem unmaps it, and the driver frees it on the last unmap) </p></li>
 </ul>
 </p>
 <p>Subclassed by <a class="reference internal" href="#classcoyote_1_1cSched"><span class="std std-ref">coyote::cSched</span></a></p>
@@ -961,6 +961,10 @@
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote6cRcnfg16reconfigureShellENSt6stringE">
 <span id="_CPPv3N6coyote6cRcnfg16reconfigureShellENSt6stringE"></span><span id="_CPPv2N6coyote6cRcnfg16reconfigureShellENSt6stringE"></span><span id="coyote::cRcnfg::reconfigureShell__ss"></span><span class="target" id="classcoyote_1_1cRcnfg_1a6fac2c319fac90330f5bd89d32cdf2a6"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">reconfigureShell</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">bitstream_path</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote6cRcnfg16reconfigureShellENSt6stringE" title="Link to this definition"></a><br /></dt>
 <dd><p>Shell reconfiguration Loads the partial bitstream into the internal memory and triggers reconfiguration. </p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Throws if reconfiguration does not complete within 10 s; after that, all reconfigurations fail until the FPGA is reprogrammed </p>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>bitstream_path</strong> – Path to partial bitstream (typically shell_top.bin inside build/bitstreams) </p>
@@ -972,6 +976,10 @@
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote6cRcnfg14reconfigureAppENSt6stringEi">
 <span id="_CPPv3N6coyote6cRcnfg14reconfigureAppENSt6stringEi"></span><span id="_CPPv2N6coyote6cRcnfg14reconfigureAppENSt6stringEi"></span><span id="coyote::cRcnfg::reconfigureApp__ss.i"></span><span class="target" id="classcoyote_1_1cRcnfg_1a5bdde7f78346425b163288b43c25892d"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">reconfigureApp</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">bitstream_path</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">vfid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote6cRcnfg14reconfigureAppENSt6stringEi" title="Link to this definition"></a><br /></dt>
 <dd><p>App reconfiguration Loads the partial bitstream into the internal memory and triggers reconfiguration of the specific vFPGA. </p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Throws if reconfiguration does not complete within 10 s; after that, all reconfigurations fail until the FPGA is reprogrammed </p>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
