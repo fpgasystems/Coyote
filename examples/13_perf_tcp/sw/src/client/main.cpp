@@ -46,12 +46,11 @@ static void requestStop(int) { stop_requested = 1; }
 // HW register map (AXI-Lite, defined in perf_tcp_axi_ctrl_parser.sv)
 // 0: START_CLIENT  (WR, bit[0]=start; auto-cleared when client FSM leaves idle)
 // 1: N_SESSIONS    (WR, [15:0]  -- number of TCP sessions)
-// 2: PKG_WORD_COUNT(WR, [31:0]  -- payload words per packet; payload = PKG_WORD_COUNT * 64 B; at most 512 (32 KB),
-//                                  see the --words option)
+// 2: PKG_WORD_COUNT(WR, [31:0]  -- payload words per packet; payload = PKG_WORD_COUNT * 64 B)
 // 3: SESSION_ID    (WR, [15:0]  -- write once per session; each write injects one session ID)
 // 4: CLK_FREQ      (WR, [31:0]  -- design clock frequency in Hz)
 // 5: DURATION      (WR, [31:0]  -- benchmark duration in seconds)
-// 6: CLIENT_STATE  (RO, [3:0]   -- current FSM state of the client HLS module)
+// 6: CLIENT_STATE  (RO, [3:0]   -- current FSM state of the client, 0 = idle)
 enum class PerfRegs : uint32_t {
     START_CLIENT    = 0,
     N_SESSIONS      = 1,
@@ -85,14 +84,11 @@ int main(int argc, char* argv[]) {
     uint16_t sessions, port;
     uint32_t words, timeS, clk_freq;
 
-    // --words should never exceed 512 (32 KB payload per request): the TCP stack only accepts a request that fits entirely
-    // in the usable window (min(cwnd, peer receive window) - unacknowledged data). Linux starts with a ~56 KB receive window
-    // and only grows it once data arrives, so larger requests may be rejected forever and the benchmark sends nothing.
     boost::program_options::options_description runtime_options("Coyote Example 13: TCP Perf Client");
     runtime_options.add_options()
         ("ip,i",       boost::program_options::value<std::string>(&ip_str)->required(),             "Server IP address (A.B.C.D, required)")
         ("sessions,s", boost::program_options::value<uint16_t>(&sessions)->default_value(1),        "Number of TCP sessions")
-        ("words,w",    boost::program_options::value<uint32_t>(&words)->default_value(16),           "Payload words per packet (payload = words * 64 B, at most 512)")
+        ("words,w",    boost::program_options::value<uint32_t>(&words)->default_value(512),          "Payload words per packet (payload = words * 64 B)")
         ("time,t",     boost::program_options::value<uint32_t>(&timeS)->default_value(10),           "Benchmark duration in seconds")
         ("port,p",     boost::program_options::value<uint16_t>(&port)->default_value(5001),          "Server TCP port")
         ("clk-freq,f", boost::program_options::value<uint32_t>(&clk_freq)->default_value(250000000), "Design clock frequency in Hz");
@@ -100,6 +96,17 @@ int main(int argc, char* argv[]) {
     boost::program_options::variables_map command_line_arguments;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, runtime_options), command_line_arguments);
     boost::program_options::notify(command_line_arguments);
+
+    // A request is words * 64 B in the 28-bit length field
+    if (words == 0 || words >= (1u << 22)) {
+        std::cerr << "--words must be between 1 and " << (1u << 22) - 1 << std::endl;
+        return EXIT_FAILURE;
+    }
+    // The vFPGA stores up to 1024 session IDs (the TCP stack's limit)
+    if (sessions == 0 || sessions > 1024) {
+        std::cerr << "--sessions must be between 1 and 1024" << std::endl;
+        return EXIT_FAILURE;
+    }
 
     uint32_t ip_be = parseIpBE(ip_str);
 

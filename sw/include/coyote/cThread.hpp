@@ -411,8 +411,8 @@ protected:
 	 *
 	 * Writes {port[15:0], ip_addr[31:0]} to TCP_OPEN_CONN_REG, then polls
 	 * TCP_OPEN_CONN_STAT_REG until the TCP stack returns a session ID.
-	 * The caller must write the returned session ID to the vFPGA user logic
-	 * (via a CSR register) so the HLS kernel can reference it in tcp_tx_meta.
+	 * The caller passes the returned session ID to the vFPGA user logic
+	 * (e.g. via a CSR register), which uses it as req_t.sid in its sq_wr requests.
 	 *
 	 * @param ip_addr    Destination IP address (host byte order)
 	 * @param port       Destination port number

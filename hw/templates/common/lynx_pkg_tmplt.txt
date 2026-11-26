@@ -322,7 +322,9 @@ package lynxTypes;
     localparam integer TCP_MEM_SHIFT = 0;
     localparam integer TCP_OPCODE = 0;
 
-    // TCP completion error, in ack_t.rsrvd[3:0]
+    // TCP completion errors, in ack_t.rsrvd[3:0]
+    localparam integer TCP_ERR_NOT_OWNER = 1;
+    localparam integer TCP_ERR_NOT_ESTABLISHED = 2;
     localparam integer TCP_ERR_BAD_REQ = 3;
 
     // Legacy Enzian support - ECI

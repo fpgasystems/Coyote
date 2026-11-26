@@ -42,7 +42,7 @@ import lynxTypes::*;
  *                             each write enqueues one session ID for the client kernel
  *   4  (WR)  : clk_freq     — design clock frequency in Hz [31:0]
  *   5  (WR)  : duration     — benchmark duration in seconds [31:0]
- *   6  (RO)  : client_state — current FSM state of the client HLS kernel [3:0]
+ *   6  (RO)  : client_state — current FSM state of the client [3:0], 0 = idle
  *
  * TCP connections are opened and closed exclusively by host software via
  * cThread::openConnTcp() / closeConnTcp(). The session IDs returned by those

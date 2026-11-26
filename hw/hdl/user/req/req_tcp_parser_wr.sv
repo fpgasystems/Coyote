@@ -29,9 +29,10 @@
 import lynxTypes::*;
 
 /**
- * @brief   Network command parser
+ * @brief   TCP write parser
  *
- * Multiplexing of the network commands
+ * Splits a request into chunks of at most PMTU_TCP bytes; only the final chunk keeps last.
+ * A len = 0 request passes as one empty chunk (rejected in the shell).
  */
 module req_tcp_parser_wr #(
     parameter integer       ID_REG = 0,
@@ -118,10 +119,13 @@ always_comb begin: DP
     // Data
     req_parsed.data = 0;
 
+    req_parsed.data.opcode = req_C.opcode;
+    req_parsed.data.strm = req_C.strm;
+    req_parsed.data.sid = req_C.sid;
     req_parsed.data.pid = req_C.pid;
     req_parsed.data.vfid = req_C.vfid;
     req_parsed.data.dest = req_C.dest;
-    req_parsed.data.last = 1'b0;
+    req_parsed.data.last = plast_C;
     req_parsed.data.len = plen_C;
     req_parsed.data.actv = 1'b1;
     req_parsed.data.host = req_C.host;

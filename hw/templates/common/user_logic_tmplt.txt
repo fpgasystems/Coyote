@@ -50,10 +50,6 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
 {% if cnfg.en_rdma %}
     metaIntf.s                  rq_rd,
 {% endif %}
-{% if cnfg.en_tcp %}
-    metaIntf.m			       tcp_tx_meta,
-    metaIntf.s			       tcp_tx_stat,
-{% endif %}
 {% if cnfg.en_net %}
     metaIntf.s                  rq_wr,
 {% endif %}
@@ -83,7 +79,7 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
 {% if cnfg.en_tcp %}
     // TCP/IP DATA STREAMS
     AXI4SR.s                   axis_tcp_recv [N_TCP_AXI],
-    AXI4S.m                    axis_tcp_send,
+    AXI4SR.m                   axis_tcp_send [N_TCP_AXI],
 
 {% endif %}
 

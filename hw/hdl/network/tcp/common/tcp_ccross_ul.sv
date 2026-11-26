@@ -35,20 +35,16 @@ import lynxTypes::*;
  * @brief   TCP clock crossing (network/aclk <-> user/uclk), data path only
  *
  * The TCP management interfaces (listen, open, close) are NOT part of this crossing: they are driven by the MMU
- * (cnfg_slave) and stay in the aclk domain. RX data comes from tcp_rx with tid = dest; rq_wr/sq_rd/cq_rd use
- * the generic meta crossings.
+ * (cnfg_slave) and stay in the aclk domain. RX data comes from tcp_rx with tid = dest; the descriptors
+ * (rq_wr, sq_rd, cq_rd, sq_wr, cq_wr) use the generic meta crossings.
  *
  */
 module tcp_ccross_ul (
     // Network
-    metaIntf.m              m_tcp_tx_meta_nclk,
-    metaIntf.s              s_tcp_tx_stat_nclk,
     AXI4S.m                m_axis_tcp_tx_nclk, 
     AXI4SR.s               s_axis_tcp_rx_nclk,
     
     // User        
-    metaIntf.s              s_tcp_tx_meta_aclk,
-    metaIntf.m              m_tcp_tx_stat_aclk,
     AXI4S.s                s_axis_tcp_tx_aclk,      
     AXI4SR.m               m_axis_tcp_rx_aclk,
 
@@ -62,33 +58,7 @@ module tcp_ccross_ul (
 // Crossings
 // ---------------------------------------------------------------------------------------------------
 
-    // Write meta + data + status
-    axis_clock_converter_tcp_40 inst_tcp_tx_meta (
-        .m_axis_aclk(nclk),
-        .s_axis_aclk(aclk),
-        .s_axis_aresetn(aresetn),
-        .m_axis_aresetn(nresetn),
-        .s_axis_tvalid(s_tcp_tx_meta_aclk.valid),
-        .s_axis_tready(s_tcp_tx_meta_aclk.ready),
-        .s_axis_tdata (s_tcp_tx_meta_aclk.data),
-        .m_axis_tvalid(m_tcp_tx_meta_nclk.valid),
-        .m_axis_tready(m_tcp_tx_meta_nclk.ready),
-        .m_axis_tdata (m_tcp_tx_meta_nclk.data)
-    );
-
-    axis_clock_converter_tcp_64 inst_tcp_tx_stat (
-        .m_axis_aclk(aclk),
-        .s_axis_aclk(nclk),
-        .s_axis_aresetn(nresetn),
-        .m_axis_aresetn(aresetn),
-        .s_axis_tvalid(s_tcp_tx_stat_nclk.valid),
-        .s_axis_tready(s_tcp_tx_stat_nclk.ready),
-        .s_axis_tdata (s_tcp_tx_stat_nclk.data),
-        .m_axis_tvalid(m_tcp_tx_stat_aclk.valid),
-        .m_axis_tready(m_tcp_tx_stat_aclk.ready),
-        .m_axis_tdata (m_tcp_tx_stat_aclk.data)
-    );
-
+    // TX data
     axis_clock_converter_tcp_512 inst_tcp_tx_data (
         .m_axis_aclk(nclk),
         .s_axis_aclk(aclk),

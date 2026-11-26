@@ -34,9 +34,9 @@ import lynxTypes::*;
 /**
  * @brief TCP connection table
  *
- * Keeps the sid -> owner table (vFPGA index) for closes and forwards open requests with the vFPGA index as
- * owner. Opened/closed notifications only update the table; data notifications (len != 0, in TOE order) go to
- * tcp_rx, which routes them by the owner the TOE reports.
+ * Keeps the sid -> owner table (vFPGA index) for closes and TX owner checks, and forwards open requests with
+ * the vFPGA index as owner. Opened/closed notifications only update the table; data notifications (len != 0,
+ * in TOE order) go to tcp_rx, which routes them by the owner the TOE reports. A sid >= 1024 has no owner.
  */
 
 module tcp_conn_table (
@@ -55,7 +55,12 @@ module tcp_conn_table (
 
     // Notify
     metaIntf.s                                     s_notify,
-    metaIntf.m                                     m_notify
+    metaIntf.m                                     m_notify,
+
+    // Owner lookup (tcp_tx): the owner of lup_sid, two cycles later
+    input  logic [TCP_SESSION_BITS-1:0]            lup_sid,
+    output logic                                   lup_valid,
+    output logic [N_REGIONS_BITS-1:0]              lup_vfid
 );
 
     // -- Constants --------------------------------------------------------------  
@@ -67,7 +72,7 @@ module tcp_conn_table (
     // RAM ports
     logic [SID_DATA_BYTES -1 : 0] a_we;
     logic [SID_ADDR_BITS - 1 : 0] a_addr;
-    logic [SID_RAM_BITS - 1: 0] a_data_in, a_data_out;
+    logic [SID_RAM_BITS - 1: 0] a_data_in, a_data_out, b_data_out;
 
     // -- SID table write arbitration (port a, priority: flush > open > notify) --
     // Flush clears the table after reset (one entry per cycle, requests are held off meanwhile)
@@ -154,7 +159,8 @@ module tcp_conn_table (
     );
 
     logic cls_owner;
-    assign cls_owner = a_data_out[SID_DATA_BITS-1] && (a_data_out[N_REGIONS_BITS-1:0] == vfid_cls_C);
+    assign cls_owner = a_data_out[SID_DATA_BITS-1] && (a_data_out[N_REGIONS_BITS-1:0] == vfid_cls_C) &&
+                       !(|cls_buf_C.sid[TCP_SESSION_BITS-1:SID_ADDR_BITS]);
 
     // -- REG (CLOSE) ------------------------------------------------------------
     always_ff @(posedge aclk) begin : REG_CLOSE
@@ -393,9 +399,12 @@ module tcp_conn_table (
         .a_data_in  (a_data_in),
         .a_data_out (a_data_out),
 
-        .b_en       (1'b0),
-        .b_addr     ('0),
-        .b_data_out ()
+        .b_en       (1'b1),
+        .b_addr     (lup_sid[SID_ADDR_BITS-1:0]),
+        .b_data_out (b_data_out)
     );
+
+    assign lup_valid = b_data_out[SID_DATA_BITS-1] && !(|lup_sid[TCP_SESSION_BITS-1:SID_ADDR_BITS]) && !clr_C;
+    assign lup_vfid  = b_data_out[N_REGIONS_BITS-1:0];
 
 endmodule

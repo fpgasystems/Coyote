@@ -35,8 +35,8 @@ module remote_credits_wr_tcp #(
     metaIntf.s                          s_req,
     metaIntf.m                          m_req,
 
-    AXI4SR.s                            s_axis,
-    AXI4S.m                             m_axis [N_DESTS],
+    AXI4SR.s                            s_axis [N_DESTS],
+    AXI4S.m                             m_axis,
 
     input  logic    					aclk,    
 	input  logic    					aresetn

@@ -62,35 +62,24 @@ perf_tcp_axi_ctrl_parser inst_axi_ctrl(
 //                  CLIENT LOGIC                      //
 ////////////////////////////////////////////////////////
 
-tcp_perf_client_hls_ip inst_perf_client(
-    // SW-injected session IDs
-    .s_axis_session_ids_TVALID      (sess_id_valid),
-    .s_axis_session_ids_TREADY      (sess_id_ready),
-    .s_axis_session_ids_TDATA       (sess_id_data),
+perf_tcp_client inst_perf_client (
+    .aclk(aclk),
+    .aresetn(aresetn),
 
-    .m_axis_tx_meta_TVALID          (tcp_tx_meta.valid),
-    .m_axis_tx_meta_TREADY          (tcp_tx_meta.ready),
-    .m_axis_tx_meta_TDATA           (tcp_tx_meta.data),
+    .start_client(start_client),
+    .n_sessions(n_sessions),
+    .pkg_word_count(pkg_word_count),
+    .clk_freq(clk_freq),
+    .duration(duration),
+    .client_state(client_state),
 
-    .m_axis_tx_data_TVALID          (axis_tcp_send.tvalid),
-    .m_axis_tx_data_TREADY          (axis_tcp_send.tready),
-    .m_axis_tx_data_TDATA           (axis_tcp_send.tdata),
-    .m_axis_tx_data_TKEEP           (axis_tcp_send.tkeep),
-    .m_axis_tx_data_TLAST           (axis_tcp_send.tlast),
+    .sess_id_valid(sess_id_valid),
+    .sess_id_ready(sess_id_ready),
+    .sess_id_data(sess_id_data),
 
-    .s_axis_tx_status_TVALID        (tcp_tx_stat.valid),
-    .s_axis_tx_status_TREADY        (tcp_tx_stat.ready),
-    .s_axis_tx_status_TDATA         (tcp_tx_stat.data),
-
-    .start_client                   (start_client),
-    .n_sessions                     (n_sessions),
-    .pkg_word_count                 (pkg_word_count),
-    .clk_freq                       (clk_freq),
-    .duration                       (duration),
-    .client_state                   (client_state),
-
-    .ap_clk                         (aclk),
-    .ap_rst_n                       (aresetn)
+    .sq_wr(sq_wr),
+    .cq_wr(cq_wr),
+    .axis_tcp_send(axis_tcp_send[0])
 );
 
 /////////////////////////////////////////////////////////
@@ -123,8 +112,6 @@ always_comb axis_host_recv[0].tie_off_s();
 always_comb axis_host_send[0].tie_off_m();
 
 // Tie-off unused signals to avoid synthesis problems
-always_comb sq_wr.tie_off_m();
-always_comb cq_wr.tie_off_s();
 always_comb notify.tie_off_m();
 
 /////////////////////////////////////////////////////////
@@ -138,16 +125,16 @@ ila_perf_tcp inst_ila_perf_tcp (
 
     .probe3  (client_state),              // 4
 
-    .probe4  (tcp_tx_meta.valid),
-    .probe5  (tcp_tx_meta.ready),
+    .probe4  (sq_wr.valid),
+    .probe5  (sq_wr.ready),
 
-    .probe6  (tcp_tx_stat.valid),
-    .probe7  (tcp_tx_stat.ready),
-    .probe8  (tcp_tx_stat.data[63:62]),   // 2
+    .probe6  (cq_wr.valid),
+    .probe7  (cq_wr.ready),
+    .probe8  (cq_wr.data.rsrvd[1:0]),     // 2
     
-    .probe9  (axis_tcp_send.tvalid),
-    .probe10 (axis_tcp_send.tready),
-    .probe11 (axis_tcp_send.tlast),
+    .probe9  (axis_tcp_send[0].tvalid),
+    .probe10 (axis_tcp_send[0].tready),
+    .probe11 (axis_tcp_send[0].tlast),
     
     .probe12 (rq_wr.valid),
     .probe13 (rq_wr.ready),

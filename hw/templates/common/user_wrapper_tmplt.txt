@@ -166,13 +166,13 @@ module design_user_wrapper_{{ c_reg }} (
     (* io_buffer_type = "none" *) output logic                         tcp_cq_rd_ready,
     (* io_buffer_type = "none" *) input  ack_t                         tcp_cq_rd_data,
 
-    (* io_buffer_type = "none" *) output logic                         tcp_tx_meta_valid,
-    (* io_buffer_type = "none" *) input  logic                         tcp_tx_meta_ready,
-    (* io_buffer_type = "none" *) output tcp_tx_meta_t                 tcp_tx_meta_data,
+    (* io_buffer_type = "none" *) output logic                         tcp_sq_wr_valid,
+    (* io_buffer_type = "none" *) input  logic                         tcp_sq_wr_ready,
+    (* io_buffer_type = "none" *) output req_t                         tcp_sq_wr_data,
 
-    (* io_buffer_type = "none" *) input  logic                         tcp_tx_stat_valid,
-    (* io_buffer_type = "none" *) output logic                         tcp_tx_stat_ready,
-    (* io_buffer_type = "none" *) input  tcp_tx_stat_t                 tcp_tx_stat_data,
+    (* io_buffer_type = "none" *) input  logic                         tcp_cq_wr_valid,
+    (* io_buffer_type = "none" *) output logic                         tcp_cq_wr_ready,
+    (* io_buffer_type = "none" *) input  ack_t                         tcp_cq_wr_data,
 
     // AXI4S TCP/IP SINK
     (* io_buffer_type = "none" *) input  logic[AXI_NET_BITS-1:0]              axis_tcp_sink_tdata,
@@ -398,19 +398,19 @@ module design_user_wrapper_{{ c_reg }} (
     assign tcp_cq_rd.data        = tcp_cq_rd_data;
     assign tcp_cq_rd_ready       = tcp_cq_rd.ready;
 
-    metaIntf #(.STYPE(tcp_tx_meta_t))     tcp_tx_meta    ();
-    metaIntf #(.STYPE(tcp_tx_meta_t))     tcp_tx_meta_int    ();
+    metaIntf #(.STYPE(req_t)) tcp_sq_wr (.*);
+    metaIntf #(.STYPE(req_t)) tcp_sq_wr_int (.*);
 
-    assign tcp_tx_meta_valid     = tcp_tx_meta.valid;
-    assign tcp_tx_meta_data      = tcp_tx_meta.data;
-    assign tcp_tx_meta.ready     = tcp_tx_meta_ready;
+    assign tcp_sq_wr_valid       = tcp_sq_wr.valid;
+    assign tcp_sq_wr_data        = tcp_sq_wr.data;
+    assign tcp_sq_wr.ready       = tcp_sq_wr_ready;
 
-    metaIntf #(.STYPE(tcp_tx_stat_t))     tcp_tx_stat    ();
-    metaIntf #(.STYPE(tcp_tx_stat_t))     tcp_tx_stat_int    ();
+    metaIntf #(.STYPE(ack_t)) tcp_cq_wr (.*);
+    metaIntf #(.STYPE(ack_t)) tcp_cq_wr_int (.*);
 
-    assign tcp_tx_stat.valid     = tcp_tx_stat_valid;
-    assign tcp_tx_stat.data      = tcp_tx_stat_data;
-    assign tcp_tx_stat_ready     = tcp_tx_stat.ready;
+    assign tcp_cq_wr.valid       = tcp_cq_wr_valid;
+    assign tcp_cq_wr.data        = tcp_cq_wr_data;
+    assign tcp_cq_wr_ready       = tcp_cq_wr.ready;
 
 {% endif %}
 {% if cnfg.en_strm %}
@@ -560,8 +560,8 @@ module design_user_wrapper_{{ c_reg }} (
     meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_tcp_rq_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(tcp_rq_wr), .m_meta(tcp_rq_wr_int));
     meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_tcp_sq_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(tcp_sq_rd_int), .m_meta(tcp_sq_rd));
     meta_reg #(.DATA_BITS($bits(ack_t))) inst_reg_tcp_cq_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(tcp_cq_rd), .m_meta(tcp_cq_rd_int));
-    meta_reg #(.DATA_BITS($bits(tcp_tx_meta_t))) inst_reg_tcp_tx_meta (.aclk(aclk), .aresetn(aresetn), .s_meta(tcp_tx_meta_int), .m_meta(tcp_tx_meta));
-    meta_reg #(.DATA_BITS($bits(tcp_tx_stat_t))) inst_reg_tcp_tx_stat (.aclk(aclk), .aresetn(aresetn),.s_meta(tcp_tx_stat), .m_meta(tcp_tx_stat_int));
+    meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_tcp_sq_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(tcp_sq_wr_int), .m_meta(tcp_sq_wr));
+    meta_reg #(.DATA_BITS($bits(ack_t))) inst_reg_tcp_cq_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(tcp_cq_wr), .m_meta(tcp_cq_wr_int));
 
 {% endif %}
 {% if cnfg.en_strm %}
@@ -625,9 +625,8 @@ module design_user_wrapper_{{ c_reg }} (
     `META_ASSIGN(tcp_rq_wr          , tcp_rq_wr_int)
     `META_ASSIGN(tcp_sq_rd_int      , tcp_sq_rd)
     `META_ASSIGN(tcp_cq_rd          , tcp_cq_rd_int)
-
-    `META_ASSIGN(tcp_tx_meta_int    , tcp_tx_meta)
-    `META_ASSIGN(tcp_tx_stat        , tcp_tx_stat_int)
+    `META_ASSIGN(tcp_sq_wr_int      , tcp_sq_wr)
+    `META_ASSIGN(tcp_cq_wr          , tcp_cq_wr_int)
 {% endif %} 
 {% if cnfg.en_strm %}
     // AXIS host
@@ -746,6 +745,20 @@ module design_user_wrapper_{{ c_reg }} (
         .aresetn(aresetn)
     );
 
+    // TCP writes too, so a TCP chunk waiting for its payload can't block host RDMA writes
+    metaIntf #(.STYPE(dreq_t)) user_remote_sq_wr_rdma (.*);
+    metaIntf #(.STYPE(req_t)) remote_sq_wr_tcp (.*);
+
+    dreq_mux_net_1_2 #(
+        .RD(0)
+    ) inst_dreq_mux_wr (
+        .s_req(user_remote_sq_wr),
+        .m_req_0(user_remote_sq_wr_rdma),
+        .m_req_1(remote_sq_wr_tcp),
+        .aclk(aclk),
+        .aresetn(aresetn)
+    );
+
 {% endif %}
     dreq_arb_2_1 inst_arb_remote_rd (
         .aclk(aclk),
@@ -762,7 +775,11 @@ module design_user_wrapper_{{ c_reg }} (
     dreq_arb_2_1 inst_arb_remote_wr (
         .aclk(aclk),
         .aresetn(aresetn),
+{% if cnfg.en_tcp %}
+        .s_req_0(user_remote_sq_wr_rdma),
+{% else %}
         .s_req_0(user_remote_sq_wr),
+{% endif %}
         .s_req_1(host_remote_sq_wr),
         .m_req(remote_sq_wr)
     );
@@ -946,10 +963,6 @@ module design_user_wrapper_{{ c_reg }} (
 
 {% endif %}
 {% if cnfg.en_tcp %}
-//    metaIntf #(.STYPE(req_t)) remote_sq_wr_tcp ();
-//    metaIntf #(.STYPE(req_t)) remote_sq_cmd_tcp ();
-//    metaIntf #(.STYPE(req_t)) remote_cred_wr_tcp ();
-
     // TCP RX data, demultiplexed by tid (= dest)
     AXI4SR axis_tcp_recv_int [N_TCP_AXI] (.*);
 
@@ -961,17 +974,24 @@ module design_user_wrapper_{{ c_reg }} (
         .s_axis(axis_tcp_sink_int),
         .m_axis(axis_tcp_recv_int)
     );
-    
+
+    // TCP TX: PMTU_TCP chunks, each released once its payload is buffered
+    AXI4SR axis_tcp_send_int [N_TCP_AXI] (.*);
+
+    remote_credits_wr_tcp #(
+        .N_DESTS(N_TCP_AXI)
+    ) inst_remote_credits_wr_tcp (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req(remote_sq_wr_tcp),
+        .m_req(tcp_sq_wr_int),
+        .s_axis(axis_tcp_send_int),
+        .m_axis(axis_tcp_src_int)
+    );
+
 {% endif %}
 {% if cnfg.en_tcp and cnfg.en_rdma %}
     `META_ASSIGN(remote_sq_wr, remote_sq_wr_rdma)
-    // dreq_mux_net_1_2 inst_dreq_mux (
-    //     .s_req(remote_sq_wr),
-    //     .m_req_0(remote_sq_wr_rdma),
-    //     .m_req_2(remote_sq_wr_tcp),
-    //     .aclk(aclk),
-    //     .aresetn(aresetn)
-    // );
 
     remote_credits_rd #(
         .N_DESTS(N_RDMA_AXI)  
@@ -1016,17 +1036,6 @@ module design_user_wrapper_{{ c_reg }} (
         .aclk(aclk),
         .aresetn(aresetn)
     );
-
-    // remote_credits_wr_tcp #(
-    //     .N_DESTS(N_TCP_AXI)  
-    // ) inst_remote_credits_wr_tcp (
-    //     .aclk(aclk),
-    //     .aresetn(aresetn),
-    //     .s_req(remote_sq_wr_tcp),
-    //     .m_req(tcp_sq_int),
-    //     .s_axis(axis_tcp_send_int),
-    //     .m_axis(axis_tcp_src_int)
-    // );
 
     req_arb_2_1 inst_rq_arbiter (
         .s_req_0(rdma_rq_wr_cred_int),
@@ -1086,19 +1095,9 @@ module design_user_wrapper_{{ c_reg }} (
     );
 
 {% elif cnfg.en_tcp %}
-    //`META_ASSIGN(remote_sq_wr, remote_sq_wr_tcp)
-    //assign remote_sq_rd.ready = 1'b1;
-//
-    //remote_credits_wr_tcp #(
-    //    .N_DESTS(N_TCP_AXI)  
-    //) inst_remote_credits_wr_tcp (
-    //    .aclk(aclk),
-    //    .aresetn(aresetn),
-    //    .s_req(remote_sq_wr_tcp),
-    //    .m_req(tcp_sq_int),
-    //    .s_axis(axis_tcp_send_int),
-    //    .m_axis(axis_tcp_src_int)
-    //);
+    // No RDMA: stray RDMA requests are dropped
+    assign remote_sq_rd.ready = 1'b1;
+    assign remote_sq_wr.ready = 1'b1;
 
     `META_ASSIGN(tcp_rq_wr_int, user_rq_wr_int)
 
@@ -1113,8 +1112,9 @@ module design_user_wrapper_{{ c_reg }} (
     metaIntf #(.STYPE(ack_t)) user_cq_wr_int (.*);
 
 {% if cnfg.en_tcp %}
-    // TCP read completions (which wait for ready) join the queued read completions
+    // TCP completions (which wait for ready) join the queued bypass/RDMA completions
     metaIntf #(.STYPE(ack_t)) cq_rd_q (.*);
+    metaIntf #(.STYPE(ack_t)) cq_wr_q (.*);
 
 {% endif %}
 {% if cnfg.en_rdma %}
@@ -1124,10 +1124,11 @@ module design_user_wrapper_{{ c_reg }} (
         .s_cq_rdma(rdma_cq),
 {% if cnfg.en_tcp %}
         .m_cq_rd(cq_rd_q),
+        .m_cq_wr(cq_wr_q),
 {% else %}
         .m_cq_rd(user_cq_rd_int),
-{% endif %}
         .m_cq_wr(user_cq_wr_int),
+{% endif %}
         .aclk(aclk),
         .aresetn(aresetn)
     );
@@ -1135,7 +1136,7 @@ module design_user_wrapper_{{ c_reg }} (
 {% else %}
 {% if cnfg.en_tcp %}
     queue_meta #(.QDEPTH(16)) inst_cq_rd_q (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_rd_cq_int), .m_meta(cq_rd_q));
-    `META_ASSIGN(bpss_wr_cq_int, user_cq_wr_int)
+    queue_meta #(.QDEPTH(16)) inst_cq_wr_q (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_wr_cq_int), .m_meta(cq_wr_q));
 {% else %}
     `META_ASSIGN(bpss_rd_cq, user_cq_rd_int)
     `META_ASSIGN(bpss_wr_cq, user_cq_wr_int)
@@ -1147,6 +1148,14 @@ module design_user_wrapper_{{ c_reg }} (
         .s_meta_0(cq_rd_q),
         .s_meta_1(tcp_cq_rd_int),
         .m_meta(user_cq_rd_int),
+        .aclk(aclk),
+        .aresetn(aresetn)
+    );
+
+    meta_arb_2_1 inst_cq_tcp_arb_wr (
+        .s_meta_0(cq_wr_q),
+        .s_meta_1(tcp_cq_wr_int),
+        .m_meta(user_cq_wr_int),
         .aclk(aclk),
         .aresetn(aresetn)
     );
@@ -1166,10 +1175,6 @@ module design_user_wrapper_{{ c_reg }} (
     {% if cnfg.en_rdma %}        
         .rq_rd(user_rq_rd_int),
     {% endif %}        
-    {% if cnfg.en_tcp %}
-        .tcp_tx_meta   (tcp_tx_meta_int),
-        .tcp_tx_stat   (tcp_tx_stat_int),
-    {% endif %}         
     {% if cnfg.en_net %}          
         .rq_wr(user_rq_wr_int),
     {% endif %}
@@ -1189,7 +1194,7 @@ module design_user_wrapper_{{ c_reg }} (
     {% endif %}
     {% if cnfg.en_tcp %}
         .axis_tcp_recv(axis_tcp_recv_int),
-        .axis_tcp_send(axis_tcp_src_int),
+        .axis_tcp_send(axis_tcp_send_int),
     {% endif %}
     {% if ( cnfg.en_sniffer and ( cnfg.sniffer_vfpga_id == c_reg ) ) %}
         .axis_rx_sniffer(rx_sniffer),

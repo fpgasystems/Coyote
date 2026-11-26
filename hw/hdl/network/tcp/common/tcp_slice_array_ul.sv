@@ -40,14 +40,10 @@ module tcp_slice_array_ul #(
     parameter integer       N_STAGES = 2  
 ) (
     // Network
-    metaIntf.m              m_tcp_tx_meta_n,
-    metaIntf.s              s_tcp_tx_stat_n,
     AXI4S.m                m_axis_tcp_tx_n, 
     AXI4SR.s               s_axis_tcp_rx_n,
     
     // User
-    metaIntf.s              s_tcp_tx_meta_u,
-    metaIntf.m              m_tcp_tx_stat_u,
     AXI4S.s                s_axis_tcp_tx_u,         
     AXI4SR.m               m_axis_tcp_rx_u,
 
@@ -55,48 +51,20 @@ module tcp_slice_array_ul #(
     input  wire             aresetn
 );
 
-metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_tx_meta_s [N_STAGES+1] (.*);
-metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_tx_stat_s [N_STAGES+1] (.*);
 AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_rx_s [N_STAGES+1] (.*);
 AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_s [N_STAGES+1] (.*);
 
 // Slaves
-`META_ASSIGN(s_tcp_tx_stat_n, tcp_tx_stat_s[0])
 `AXISR_ASSIGN(s_axis_tcp_rx_n, axis_tcp_rx_s[0])
 
-`META_ASSIGN(s_tcp_tx_meta_u, tcp_tx_meta_s[0])
 `AXIS_ASSIGN(s_axis_tcp_tx_u, axis_tcp_tx_s[0])
 
 // Masters
-`META_ASSIGN(tcp_tx_meta_s[N_STAGES], m_tcp_tx_meta_n)
 `AXIS_ASSIGN(axis_tcp_tx_s[N_STAGES], m_axis_tcp_tx_n)
 
-`META_ASSIGN(tcp_tx_stat_s[N_STAGES], m_tcp_tx_stat_u)
 `AXISR_ASSIGN(axis_tcp_rx_s[N_STAGES], m_axis_tcp_rx_u)
 
 for(genvar i = 0; i < N_STAGES; i++) begin
-
-    axis_register_slice_tcp_40 inst_slice_tx_meta (
-        .aclk(aclk),
-        .aresetn(aresetn),
-        .s_axis_tvalid(tcp_tx_meta_s[i].valid),
-        .s_axis_tready(tcp_tx_meta_s[i].ready),
-        .s_axis_tdata (tcp_tx_meta_s[i].data),  
-        .m_axis_tvalid(tcp_tx_meta_s[i+1].valid),
-        .m_axis_tready(tcp_tx_meta_s[i+1].ready),
-        .m_axis_tdata (tcp_tx_meta_s[i+1].data)
-    );
-
-    axis_register_slice_tcp_64 inst_slice_tx_stat (
-        .aclk(aclk),
-        .aresetn(aresetn),
-        .s_axis_tvalid(tcp_tx_stat_s[i].valid),
-        .s_axis_tready(tcp_tx_stat_s[i].ready),
-        .s_axis_tdata (tcp_tx_stat_s[i].data),  
-        .m_axis_tvalid(tcp_tx_stat_s[i+1].valid),
-        .m_axis_tready(tcp_tx_stat_s[i+1].ready),
-        .m_axis_tdata (tcp_tx_stat_s[i+1].data)
-    );
 
     axis_register_slice_tcp_512 inst_slice_tx (
         .aclk(aclk),
