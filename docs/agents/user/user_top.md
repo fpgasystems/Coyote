@@ -57,12 +57,13 @@ Present-conditions come from [user_logic_tmplt.txt](../../../hw/templates/common
 | `sq_rd`, `sq_wr` | `metaIntf.m` of `req_t` | master | always | vFPGA-initiated read / write requests (send queues) |
 | `cq_rd`, `cq_wr` | `metaIntf.s` of `ack_t` | slave | always | completions (for host- *and* vFPGA-initiated requests) |
 | `rq_rd` | `metaIntf.s` of `req_t` | slave | `EN_RDMA` | incoming remote READ request (fetch local data for response) |
-| `rq_wr` | `metaIntf.s` of `req_t` | slave | `EN_NET` (RDMA, TCP or SNIFFER builds) | incoming remote WRITE/SEND/READ-response (place payload) |
+| `rq_wr` | `metaIntf.s` of `req_t` | slave | `EN_NET` (RDMA, TCP or SNIFFER builds) | incoming remote WRITE/SEND/READ-response (place payload); TCP: one `{sid,len}` per received segment (`strm=STRM_TCP`) |
 | `axis_host_recv[N_STRM_AXI]` / `axis_host_send[...]` | `AXI4SR.s` / `AXI4SR.m` | host->vFPGA / vFPGA->host | `EN_STRM` | host-memory data |
 | `axis_card_recv[N_CARD_AXI]` / `axis_card_send[...]` | `AXI4SR` | card mem <-> vFPGA | `EN_MEM` | HBM/DDR data |
 | `axis_rreq_recv/send[N_RDMA_AXI]` | `AXI4SR` | requester side of RDMA | `EN_RDMA` | `rreq_send`: payload of *our* WRITE/SEND; `rreq_recv`: payload of READ responses to *our* READs |
 | `axis_rrsp_recv/send[N_RDMA_AXI]` | `AXI4SR` | responder side of RDMA | `EN_RDMA` | `rrsp_recv`: payload of *incoming* WRITE/SEND; `rrsp_send`: payload of READ responses we serve |
-| `axis_tcp_recv/send[N_TCP_AXI]` | `AXI4SR` | TCP payload | `EN_TCP` | **not buildable at present** (NET-01) |
+| `axis_tcp_recv[N_TCP_AXI]` | `AXI4SR.s` | TCP RX payload | `EN_TCP` | data of TCP `sq_rd` (`strm=STRM_TCP`, `sid`, `len`, `dest`); see [network.md](../services/network.md#5-per-vfpga-multiplexing-and-ids) |
+| `axis_tcp_send[N_TCP_AXI]` | `AXI4SR.m` | TCP TX payload | `EN_TCP` | data of TCP `sq_wr` (`strm=STRM_TCP`, `sid`, `len`, `dest`): exactly `len` bytes, `tlast`/`tkeep` ignored; `cq_wr` if `last` (see [network.md](../services/network.md#5-per-vfpga-multiplexing-and-ids)) |
 | `axis_rx_sniffer`, `axis_tx_sniffer` | `AXI4S.s` (512-bit net) | slave | `EN_SNIFFER` and `SNIFFER_VFPGA_ID == vfid` | raw RX/TX Ethernet frames |
 | `filter_config` | `metaIntf.m` of `logic[63:0]` | master | same | sniffer filter word |
 | `aclk`, `aresetn` | `input wire` | | always | **`aclk` is `uclk` when `EN_UCLK=1`** |
@@ -87,7 +88,9 @@ Interface definitions ([axi_intf.sv](../../../hw/hdl/pkg/axi_intf.sv), [lynx_int
 | `last` | 1 | yes | only if set: end-of-request carries `tlast` and a completion (`ack_t`) is produced, completion counters increment |
 | `vaddr` | `VADDR_BITS` (48) | yes | virtual address (translated by MMU; process = `pid`) |
 | `len` | `LEN_BITS` (28) | yes | bytes, HW max 2^28-1; SW `invoke` caps at 128 MiB (`MAX_TRANSFER_SIZE`) |
-| `actv`, `host`, `offs`, `rsrvd` | 1,1,6,22 | no | `user_req_mux` forces `actv=1, host=0` |
+| `actv`, `host`, `offs` | 1,1,6 | no | `user_req_mux` forces `actv=1, host=0` |
+| `sid` | 16 (`TCP_SESSION_BITS`) | yes (TCP) | TCP session; only used with `strm=STRM_TCP` |
+| `rsrvd` | 6 | no | |
 
 `dreq_t` = `{req_t req_1 (rd/local), req_t req_2 (wr/remote)}` = 256 bit: used for host commands (`host_sq`) and remote (RDMA/TCP) requests.
 
@@ -132,8 +135,8 @@ Order of processing (local data):
 2. **Request merge:** `host_req_mux` splits `host_sq` (`dreq_t`, from `cnfg_slave`) into local rd/wr (+ remote rd/wr with `EN_NET`); `user_req_mux` takes `sq_rd/sq_wr` (forces `actv=1,host=0,vfid=ID_REG`) and routes by `is_strm_local(strm)`; `req_arb_2_1` round-robins user vs host per direction; `dreq_arb_2_1` same for remote.
 3. **Stream split:** `req_mux_stream_1_2` sends `strm==STRM_HOST` to the host path, everything else local to the card path (only when both `EN_STRM` and `EN_MEM`).
 4. **Credits (per direction, per target):** `local_credits_{host,card}_{rd,wr}`; internals: `dest_req_mux` (by `dest`) -> `queue_meta` -> `req_parser` (PMTU split) -> `req_credits_{rd,wr}` -> `dest_req_arb` (RR; host variant also drives the `mux` meta telling data muxes which dest/len/pid is next) -> `axis_mux_user_{rd,wr}` (route stream by `mux`; rd attaches `tid=pid`) -> `axisr_data_fifo_512_{host,card}`/`axis_data_fifo_512_{host,card}` per dest. Card variants use `dest_req_arb_ns` (read side also `dest_req_seq`) and `axis_card_assign_user_rd`. `*_arb_2_1` merges host+card onto `bpss_{rd,wr}_req` (to MMU via [dynamic_top](../../../hw/templates/common/dynamic_top_tmplt.txt)).
-5. **Remote (RDMA):** `remote_credits_rd` (`dreq_credits_rd` + `dreq_rdma_parser_rd` + `axis_mux_user_rq`: our READ requests, incoming READ-response / WRITE payload streams `rreq_recv`/`rrsp_recv`), `remote_credits_wr_rdma` (`dreq_credits_wr` + `dreq_rdma_parser_wr` + `dest_dreq_*`: our WRITE/SEND, payload `rreq_send`), `remote_resp_rd` (serves incoming READ requests: `rq_rd` + `rrsp_send`), `dreq_arb_2_1` merges rd/wr into `rdma_sq`; `req_arb_2_1` merges RDMA/TCP `rq` into `rq_wr`; `dreq_mux_net_1_2` splits remote writes between RDMA and TCP.
-6. **Completions:** `cq_arb` (RDMA builds only) round-robins `bpss_*_cq` with `rdma_cq` (read-response -> `cq_rd`, ACK -> `cq_wr`); without RDMA `bpss_*_cq` goes straight to `cq_*`. With RDMA, `cq_arb` queues (`QDEPTH=16`) and always accepts input (`ready=1`). **The vFPGA CQ is fire-and-forget:** `cnfg_slave_avx` forwards each ack with `m_bpss_done_*.valid = meta_done_*.valid & meta_done_*.ready` (the vFPGA's `ready` is ignored) and its own input queue is always ready, so an undrained `cq_rd/cq_wr` drops acks (never stalls the shell). Keep `cq_*.ready=1` if unused.
+5. **Remote (RDMA):** `remote_credits_rd` (`dreq_credits_rd` + `dreq_rdma_parser_rd` + `axis_mux_user_rq`: our READ requests, incoming READ-response / WRITE payload streams `rreq_recv`/`rrsp_recv`), `remote_credits_wr_rdma` (`dreq_credits_wr` + `dreq_rdma_parser_wr` + `dest_dreq_*`: our WRITE/SEND, payload `rreq_send`), `remote_resp_rd` (serves incoming READ requests: `rq_rd` + `rrsp_send`), `dreq_arb_2_1` merges rd/wr into `rdma_sq`; `req_arb_2_1` merges RDMA/TCP `rq` into `rq_wr`. TCP `sq_rd` is split off by `dreq_mux_net_1_2` (`RD=1`) before `inst_arb_remote_rd` and goes to the shell without credits (`tcp_rx` buffers the data); `axis_mux_user_tcp` demultiplexes `axis_tcp_recv` by `tid`. TCP `sq_wr` is split off the same way (`RD=0`) before `inst_arb_remote_wr` and goes through `remote_credits_wr_tcp` (`PMTU_TCP` chunks, store and forward) to the shell as `tcp_sq_wr` and one data stream. How the shell shares the TOE between vFPGAs: [network.md](../services/network.md#51-tcpip-toe-on-the-generic-interfaces).
+6. **Completions:** `cq_arb` (RDMA builds only) round-robins `bpss_*_cq` with `rdma_cq` (read-response -> `cq_rd`, ACK -> `cq_wr`); without RDMA `bpss_*_cq` goes straight to `cq_*`. With TCP, `meta_arb_2_1` merges the TCP read and write completions after a queue on the bypass/RDMA side. With RDMA, `cq_arb` queues (`QDEPTH=16`) and always accepts input (`ready=1`). **The vFPGA CQ is fire-and-forget:** `cnfg_slave_avx` forwards each ack with `m_bpss_done_*.valid = meta_done_*.valid & meta_done_*.ready` (the vFPGA's `ready` is ignored) and its own input queue is always ready, so an undrained `cq_rd/cq_wr` drops acks (never stalls the shell). Keep `cq_*.ready=1` if unused.
 7. **Debug:** `debug_bridge_user` (US+) or `debug_hub_user` (Versal+PR) for ILAs in user logic.
 
 Module roles in [hw/hdl/user/](../../../hw/hdl/user/):
@@ -178,14 +181,14 @@ Pass `cThread` by reference (copying -> UB; it owns fds/mmaps).
 | `invoke(oper, localSg, last=true)` | `LOCAL_READ`/`LOCAL_WRITE`; async; `postCmd`; throws unless the shell has `en_strm` or `en_mem`, and if len > 128 MiB |
 | `invoke(LOCAL_TRANSFER, src, dst, last=true)` | one command with rd half + wr half (src may differ from dst in stream/dest/len) |
 | `invoke(oper, rdmaSg, last=true)` | `REMOTE_RDMA_READ/WRITE/SEND`; throws unless shell `en_rdma`; needs `initRDMA` first; if local IP == remote IP does a `memcpy` |
-| `invoke(REMOTE_TCP_SEND, tcpSg)` | marked unsupported in `cOps.hpp` |
+| `listenTcp(port)`, `stopListenTcp(port)`, `openConnTcp(ip, port)` -> sid, `closeConnTcp(sid)` | TCP connection management only (`TCP_OPEN_PORT/OPEN_CONN/CLOSE_CONN` registers); TCP data is sent and received by the vFPGA (`sq_wr`/`sq_rd`, [network.md](../services/network.md#51-tcpip-toe-on-the-generic-interfaces)), there is no TCP `invoke` |
 | `checkCompleted(oper)` | per-`ctid` counter since last `clearCompleted`: LOCAL_WRITE/TRANSFER -> write counter, LOCAL_READ -> read counter, REMOTE_RDMA_READ -> rdma-read, REMOTE_RDMA_WRITE/SEND -> rdma-write (checked in this order; `LOCAL_TRANSFER` therefore polls the *write* side) |
 | `clearCompleted()` | zero `wback[ctid + i*64]` (if `en_wb`) and write `CTRL_CLR_STAT|ctid<<10` to the cnfg control register (both rd and wr halves) |
 | `lock()/unlock()` | inter-process `boost::named_mutex` per (device, vfid); **`invoke` does not take it implicitly**; use only if several processes/threads must serialise a multi-step sequence |
 | `initRDMA(buf, port, server?, mem?)`, `connSync`, `closeConn`, `doArpLookup`, `writeQpContext` | out-of-band TCP QP exchange then `RDMA_CTX_REG/RDMA_CONN_REG/NET_ARP_REG` writes ([services/network.md](../services/network.md)) |
 | `getVfid/getCtid/getHpid/getQpair/printDebug` | getters / stats from `STAT_REG_0/1` |
 
-SG structs ([cOps.hpp](../../../sw/include/coyote/cOps.hpp)): `syncSg{addr,len}`, `localSg{addr,len(u32),stream=STRM_HOST,dest=0}`, `rdmaSg{local_offs,local_stream,local_dest,remote_offs,remote_dest,len}` (addresses come from the exchanged QP), `tcpSg{stream=STRM_TCP,dest,len}`. `CoyoteOper`: `NOOP=0, LOCAL_READ=1, LOCAL_WRITE=2, LOCAL_TRANSFER=3, LOCAL_OFFLOAD=4, LOCAL_SYNC=5, REMOTE_RDMA_READ=6, REMOTE_RDMA_WRITE=7, REMOTE_RDMA_SEND=8, REMOTE_TCP_SEND=9`.
+SG structs ([cOps.hpp](../../../sw/include/coyote/cOps.hpp)): `syncSg{addr,len}`, `localSg{addr,len(u32),stream=STRM_HOST,dest=0}`, `rdmaSg{local_offs,local_stream,local_dest,remote_offs,remote_dest,len}` (addresses come from the exchanged QP). `CoyoteOper`: `NOOP=0, LOCAL_READ=1, LOCAL_WRITE=2, LOCAL_TRANSFER=3, LOCAL_OFFLOAD=4, LOCAL_SYNC=5, REMOTE_RDMA_READ=6, REMOTE_RDMA_WRITE=7, REMOTE_RDMA_SEND=8`.
 
 ### 7.1 `invoke` -> registers -> hardware
 Canonical end-to-end path of a host command; other docs link here. `LOCAL_OFFLOAD/SYNC` take the ioctl path instead ([services/mmu.md](../services/mmu.md)).
@@ -304,7 +307,7 @@ Deploy: program bitstream, `insmod coyote_driver.ko`, run (see [examples/README.
 | `EN_STRM` (1), `N_STRM_AXI` (1) | host streams `axis_host_*[N_STRM_AXI]` |
 | `EN_MEM` (0), `N_CARD_AXI` (1) | card streams `axis_card_*[N_CARD_AXI]`, enables sync/offload |
 | `EN_RDMA` (0), `N_RDMA_AXI` (1) | `rq_rd`, `rq_wr`, `axis_rreq_*`, `axis_rrsp_*` (US+ only) |
-| `EN_TCP` (0), `N_TCP_AXI` (1) | `axis_tcp_*` (broken in current templates) |
+| `EN_TCP` (0), `N_TCP_AXI` (1), `TCP_RX_QUEUE_BYTES` (65536) | TCP `rq_wr`/`sq_rd`/`cq_rd`/`sq_wr`/`cq_wr`, `axis_tcp_recv[N_TCP_AXI]`, `axis_tcp_send[N_TCP_AXI]`; per-vFPGA RX queue size |
 | `EN_SNIFFER` (0), `SNIFFER_VFPGA_ID` (0) | sniffer ports on that vFPGA only; setting it forces `EN_NET=1` (cmake: `EN_RDMA OR EN_TCP OR EN_SNIFFER`), which exposes `rq_wr`. Sniffer-only builds (no RDMA/TCP) leave the wrapper's remote sinks/`user_rq_wr_int` undriven (NET-07); example 11 sets `EN_RDMA=1` |
 | `DATA_DEST_BITS` (4) | width of `dest`/`vfid` fields |
 | `VADDR_BITS` (48) | `vaddr` width |
@@ -366,4 +369,4 @@ All SW example CMake files accept `-DEN_SIM=ON` to build against the simulator (
 
 ## 14. Known defects
 
-Known defects in this area: [known_issues.md](../known_issues.md) (`USR-*`, `NET-01`, `NET-04`, `NET-07`, `DEAD-03`).
+Known defects in this area: [known_issues.md](../known_issues.md) (`USR-*`, `NET-04`, `NET-07`, `DEAD-03`).

@@ -9,7 +9,7 @@
 | [sw/CMakeLists.txt](../../sw/CMakeLists.txt) | Library build, options `EN_AVX`/`EN_ROCM`/`EN_CUDA`, install/export |
 | [cmake/FindCoyoteSW.cmake](../../cmake/FindCoyoteSW.cmake) | Deprecated shim; only warns and `add_subdirectory(${CYT_DIR}/sw)` |
 | [sw/include/coyote/cDefs.hpp](../../sw/include/coyote/cDefs.hpp) | IOCTL numbers, register enums, bit-field constants, `fpgaCnfg`, `ibvQ/ibvQp`, debug macros |
-| [sw/include/coyote/cOps.hpp](../../sw/include/coyote/cOps.hpp) | `CoyoteOper`, `CoyoteAllocType`, `CoyoteAlloc`, SG entries (`syncSg/localSg/rdmaSg/tcpSg`) |
+| [sw/include/coyote/cOps.hpp](../../sw/include/coyote/cOps.hpp) | `CoyoteOper`, `CoyoteAllocType`, `CoyoteAlloc`, SG entries (`syncSg/localSg/rdmaSg`) |
 | [sw/include/coyote/cThread.hpp](../../sw/include/coyote/cThread.hpp), [sw/src/cThread.cpp](../../sw/src/cThread.cpp) | Core class |
 | [sw/include/coyote/cRcnfg.hpp](../../sw/include/coyote/cRcnfg.hpp), [sw/src/cRcnfg.cpp](../../sw/src/cRcnfg.cpp) | Reconfiguration |
 | [sw/include/coyote/cSched.hpp](../../sw/include/coyote/cSched.hpp), [sw/src/cSched.cpp](../../sw/src/cSched.cpp) | Per-vFPGA task scheduler (derives from `cRcnfg`) |
@@ -91,7 +91,7 @@ Members ([cThread.hpp](../../sw/include/coyote/cThread.hpp)): `fd`, `vfid`, `cti
 | `invoke(LOCAL_READ\|LOCAL_WRITE, localSg, last)` | `en_strm\|\|en_mem` | READ: `postCmd(0,0,vaddr,ctrl)`; WRITE: `postCmd(vaddr,ctrl,0,0)` |
 | `invoke(LOCAL_TRANSFER, src, dst, last)` | same | `postCmd(dst.addr, dst.ctrl, src.addr, src.ctrl)` |
 | `invoke(REMOTE_RDMA_{READ,WRITE,SEND}, rdmaSg, last)` | `en_rdma` | if local IP == remote IP: `memcpy(remote, local)` **in every case** (wrong direction for `REMOTE_RDMA_READ`, SW-03); else builds a local and a remote command (opcode `oper - REMOTE_OFFS_OPS`(6): READ 0, WRITE 1, SEND 2; remote uses `STRM_RDMA`), swaps src/dst for READ, `postCmd`. Only the *remote* half carries `CTRL_START` (`ctrl_cmd_r` in [cThread.cpp](../../sw/src/cThread.cpp)); the local half is a descriptor without START |
-| `invoke(REMOTE_TCP_SEND, tcpSg, last)` | `en_tcp` | write-only command on `STRM_TCP` (documented as unsupported/buggy in [cOps.hpp](../../sw/include/coyote/cOps.hpp)) |
+| `listenTcp(port)`, `stopListenTcp(port)`, `openConnTcp(ip, port)`, `closeConnTcp(sid)` | `en_tcp` | TCP connection management only: write `TCP_OPEN_PORT_REG` (bit 15 = stop) / `TCP_OPEN_CONN_REG` / `TCP_CLOSE_CONN_REG` and poll the `*_STAT_REG` (`pollTcpStat`, timeout `TCP_MGMT_TIMEOUT_MS`), holding `mgmt_lock` (inter-process, per vFPGA) until the request completes. Sessions opened or listened on are closed in the destructor. TCP data has no `invoke`: the vFPGA uses `sq_wr`/`sq_rd` ([services/network.md](services/network.md#51-tcpip-toe-on-the-generic-interfaces)) |
 
 `invoke` is asynchronous: it returns after the command is queued. Completion: `checkCompleted(oper)` ([cThread.cpp](../../sw/src/cThread.cpp)) returns a monotonically increasing per-ctid counter; check order is **write -> read -> remote read -> remote write/send** because `LOCAL_TRANSFER` satisfies both `isLocalRead` and `isLocalWrite`. Counter locations (writeback / AVX lanes): [user_top.md](user/user_top.md#71-invoke---registers---hardware).
 
@@ -219,7 +219,7 @@ RTL: [services/network.md](services/network.md); driver: [driver.md#networking](
 | `invoke(rdmaSg)` | as table above | RDMA stack |
 | `connSync(client)`, `closeConn()` | ack ints / `DEF_OP_CLOSE_CONN` over the OOB socket | none |
 
-No SW wrapper: `IOCTL_SET_IP_ADDRESS`, `IOCTL_SET_MAC_ADDRESS`, `IOCTL_GET_MAC_ADDRESS`, `IOCTL_NET_STATS` (named `IOCTL_SHELL_NET_STATS` in the driver) - use sysfs/insmod params; the `TCP_OPEN_PORT/CONN(_STAT)_REG` registers also have no `cThread` wrapper (TCP send is unsupported).
+No SW wrapper: `IOCTL_SET_IP_ADDRESS`, `IOCTL_SET_MAC_ADDRESS`, `IOCTL_GET_MAC_ADDRESS`, `IOCTL_NET_STATS` (named `IOCTL_SHELL_NET_STATS` in the driver) - use sysfs/insmod params.
 
 Both register writes end with `usleep(SLEEP_TIME)` = **100 us** (`usleep` takes microseconds although `SLEEP_TIME` is documented in ns). IP/MAC registers (`NET_IPADDR_REG`=32, `NET_MACADDR_REG`=33 in `shell_slave.sv`) are driver-only. Local QP number = `(vfid & 0xf) << 6 | (ctid & 0x3f)`; local `rkey` fixed to 0; one OOB connection per `cThread` (`connfd`, `sockfd`); see [examples/09_perf_rdma](../../examples/09_perf_rdma/).
 

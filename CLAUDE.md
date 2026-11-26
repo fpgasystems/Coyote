@@ -46,7 +46,7 @@ Coyote simplifies the deployment of applications on FPGAs and the integration of
 
 ## Gotchas
 - The static layer is a prebuilt locked checkpoint (`hw/checkpoints/`). Edits to `hw/hdl/static`, the static templates or `cr_pci.tcl` take effect only with `-DBUILD_STATIC=1`.
-- Networking (`EN_RDMA`/`EN_TCP`/`EN_SNIFFER`) is a CMake fatal error on Versal. `EN_TCP` does not build as shipped, and the sniffer needs `EN_RDMA`.
+- Networking (`EN_RDMA`/`EN_TCP`/`EN_SNIFFER`) is a CMake fatal error on Versal. The sniffer needs `EN_RDMA`.
 - On Versal, `EN_PR=1` requires `EN_SHELL_PBLOCK=0`. You get shell PR or app PR, never both.
 - In the app flow (`BUILD_APP`), shell parameters from `export.cmake` override any `-D` you pass.
 - `N_REGIONS` ≤ 15: MSI-X vector 15 is reserved for reconfiguration.

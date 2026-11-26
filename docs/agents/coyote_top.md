@@ -9,7 +9,7 @@
 - Coyote provides OS-like abstractions on the FPGA, packaged as a reusable **shell**:
   - **Processes/threads →** vFPGAs (spatially partitioned app regions, optionally reconfigurable) + software `cThread`s (up to `N_CTID_MAX=64` SW threads per vFPGA, distinguished in HW by `ctid`).
   - **Virtual memory →** per-vFPGA MMU/TLBs, shared virtual address space with the host process (host memory, FPGA card memory, GPU memory via dmabuf); TLB misses are served by the driver.
-  - **Services →** host DMA, card memory (HBM/DDR, striping), 100G RoCEv2 RDMA, TCP/IP (not buildable as shipped, see glossary), packet sniffer (requires `EN_RDMA`).
+  - **Services →** host DMA, card memory (HBM/DDR, striping), 100G RoCEv2 RDMA, TCP/IP (RX DDR bypass only, UltraScale+ only), packet sniffer (requires `EN_RDMA`).
   - **Execution environment / ABI →** one *unified user logic interface* per vFPGA (AXI4-Lite CSRs, send/completion queues, AXI4-Stream data to host/card/network, interrupts).
   - **Reconfiguration →** run-time shell reconfiguration (swap services + apps) and app reconfiguration of single vFPGAs, without taking the device offline.
 - v2 vs v1 (OSDI'20 / thesis): services moved from the static layer into the reconfigurable shell (three layers), unified interface with multiple parallel streams, multithreading, FPGA-initiated DMA, generic interrupts, QDMA/Versal support, GPU P2P.
@@ -172,5 +172,5 @@ All known defects live in one table, [known_issues.md](known_issues.md) (ID, sev
 | Writeback (WB) | `EN_WB=1`: completion counters DMA'd to host memory for `checkCompleted`; otherwise read over MMIO. |
 | PR / EOS | Partial reconfiguration / end-of-startup (PR done, releases decoupling/reset). |
 | AVX path | `EN_AVX`: 256-bit command/register access via `axim_ctrl` for faster command posting. |
-| TCP | `EN_TCP` exists but is **not buildable as shipped** (template/RTL defects, see [services/network.md](services/network.md) and [user/user_top.md](user/user_top.md)); `REMOTE_TCP_SEND` is marked unsupported in [cOps.hpp](../../sw/include/coyote/cOps.hpp); no example enables it. |
+| TCP | `EN_TCP` (UltraScale+): HLS TOE plus the shell's per-vFPGA RX queues and TX round robin ([services/network.md](services/network.md)); example 13. Connections are managed from SW (`cThread::listenTcp`, `openConnTcp`, `closeConnTcp`). |
 | US+ / Versal | `ultrascale_plus` (XDMA) vs `versal` (QDMA + NoC) architecture families. |

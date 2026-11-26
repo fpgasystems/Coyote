@@ -1,7 +1,7 @@
 # Network services (CMAC, network stack, RoCEv2 RDMA, TCP/IP, packet sniffer)
 
 **Purpose**: everything between the QSFP cage and the per-vFPGA network interfaces (`rq_rd`/`rq_wr`, `axis_rreq_*`/`axis_rrsp_*`, `axis_tcp_*`, sniffer streams), plus the host-side control path (IP/MAC, ARP prefetch, QP context, statistics). UltraScale+ only (CMAC, [summary](../coyote_top.md#ultrascale-vs-versal-summary)), 100G, 512-bit datapath, HLS cores + SystemVerilog glue.
-RDMA is the maintained path (RoCEv2, "BALBOA"). TCP/IP is present in RTL but is **not currently usable end to end** (see [Gotchas](#gotchas-and-known-issues)).
+RDMA is the RoCEv2 ("BALBOA") stack. TCP/IP (TOE) uses the generic vFPGA interfaces, shared by all vFPGAs with per-vFPGA flow control ([5.1](#51-tcpip-toe-on-the-generic-interfaces)): RX `rq_wr`/`sq_rd`/`cq_rd`/`axis_tcp_recv`, TX `sq_wr`/`cq_wr`/`axis_tcp_send`.
 
 ## Key files
 
@@ -18,7 +18,7 @@ RDMA is the maintained path (RoCEv2, "BALBOA"). TCP/IP is present in RTL but is 
 | [rdma_flow.sv](../../../hw/hdl/network/rdma/rdma_flow.sv), [rdma_mux_retrans.sv](../../../hw/hdl/network/rdma/rdma_mux_retrans.sv), [icrc.sv](../../../hw/hdl/network/rdma/icrc.sv), [read_request_trimmer.sv](../../../hw/hdl/network/rdma/read_request_trimmer.sv), [ack_gap_enforcer.sv](../../../hw/hdl/network/rdma/ack_gap_enforcer.sv) | RDMA sub-blocks (see below) |
 | [rdma_arbiter.sv](../../../hw/hdl/network/rdma/rdma_arbiter.sv), [rdma_meta_tx_arbiter.sv](../../../hw/hdl/network/rdma/rdma_meta_tx_arbiter.sv), [rdma_meta_rx_arbiter.sv](../../../hw/hdl/network/rdma/rdma_meta_rx_arbiter.sv), [rdma_mux_cmd_rd.sv](../../../hw/hdl/network/rdma/rdma_mux_cmd_rd.sv), [rdma_mux_cmd_wr.sv](../../../hw/hdl/network/rdma/rdma_mux_cmd_wr.sv) | Per-vFPGA multiplexing (instantiated from `dynamic_top`) |
 | [rdma/common/](../../../hw/hdl/network/rdma/common/), [tcp/common/](../../../hw/hdl/network/tcp/common/), [stack/common/](../../../hw/hdl/network/stack/common/) | CDC (`*_ccross_*`) and register-slice (`*_slice*`) wrappers per interface bundle |
-| [tcp_stack.sv](../../../hw/hdl/network/tcp/tcp_stack.sv), [tcp_arbiter.sv](../../../hw/hdl/network/tcp/tcp_arbiter.sv), [tcp_conn_table.sv](../../../hw/hdl/network/tcp/tcp_conn_table.sv), [tcp_port_table.sv](../../../hw/hdl/network/tcp/tcp_port_table.sv) | TOE wrapper, listen-port/session tables, per-vFPGA RX/TX arbiters |
+| [tcp_stack.sv](../../../hw/hdl/network/tcp/tcp_stack.sv), [tcp_port_table.sv](../../../hw/hdl/network/tcp/tcp_port_table.sv), [tcp_conn_table.sv](../../../hw/hdl/network/tcp/tcp_conn_table.sv), [tcp_rx.sv](../../../hw/hdl/network/tcp/tcp_rx.sv), [tcp_tx.sv](../../../hw/hdl/network/tcp/tcp_tx.sv) | TOE wrapper, listen-port/session tables, per-vFPGA RX queues, TX |
 | [hw/services/network/](../../../hw/services/network/) (git submodule) | HLS sources of all protocol cores; [CMakeLists.txt](../../../hw/services/network/CMakeLists.txt) selects what is built |
 | [network_infrastructure.tcl](../../../scripts/ip_inst/network_infrastructure.tcl) | Vivado `create_ip` for CMAC (per board), FIFOs, CDC, HLS IPs (versions are pinned here) |
 | [lynx_pkg_tmplt.txt](../../../hw/templates/common/lynx_pkg_tmplt.txt) | Network constants/structs: `rdma_qp_ctx_t`, `rdma_qp_conn_t`, `net_stat_t`, `RDMA_*`, `TCP_*`, `DEF_IP/MAC_ADDRESS` |
@@ -59,7 +59,7 @@ network_ccross_late + rdma/tcp_ccross_late_net + *_slice_array_net (nclk -> aclk
    v                                                           aclk domain (shell clock)
 net_mem_intf (RDMA, TCP) -> AXI4 -> axi_stripe -> card memory (shell_top)
    v
-dynamic_top: rdma_slice_array_dyn -> rdma_arbiter / tcp_arbiter (N_REGIONS) -> rdma_ccross_ul / tcp_ccross_ul (aclk->uclk, if EN_UCLK)
+dynamic_top: rdma_slice_array_dyn -> rdma_arbiter / tcp_port_table, tcp_conn_table, tcp_rx, tcp_tx (N_REGIONS) -> rdma_ccross_ul / tcp_ccross_ul + meta_ccross (aclk->uclk, if EN_UCLK)
           -> *_slice_array_ul -> decouplers -> design_user_wrapper_i -> credits/muxes -> vFPGA (rq_rd, rq_wr, axis_rreq_*, axis_rrsp_*, axis_tcp_*)
 ```
 
@@ -192,13 +192,58 @@ For `REMOTE_RDMA_READ` the SW swaps source/destination roles in `invoke`; only t
 | `axis_rreq_recv[N_RDMA_AXI]` | Payload of READ RESPONSEs to our READs | `axis_rdma_resp_int` | `remote_credits_rd` (`m_axis_resp`) |
 | `axis_rrsp_recv[N_RDMA_AXI]` | Payload of incoming remote WRITE/SEND | `axis_rdma_recv_int` | `remote_credits_rd` (`m_axis_recv`) |
 | `axis_rrsp_send[N_RDMA_AXI]` | Payload we send as READ RESPONSE | `axis_rdma_send_rsp_int` -> `axis_rdma_src_rsp` | [remote_resp_rd.sv](../../../hw/hdl/user/credits/remote_resp_rd.sv) |
-| `axis_tcp_recv/send[N_TCP_AXI]`, `rq_wr` (TCP) | TCP payload; `rq_wr` carries `{sid,len}` | `axis_tcp_*_int`, `tcp_rq_*` | `axis_mux_user_tcp`, `remote_credits_wr_tcp` |
+| `rq_wr`, `sq_rd`, `cq_rd`, `axis_tcp_recv[N_TCP_AXI]` (TCP RX) | One `rq_wr` `{sid,len}` per received segment; `sq_rd` reads it (`dest` = stream), `cq_rd` if `last` | `tcp_rq_wr`, `tcp_sq_rd`, `tcp_cq_rd`, `axis_tcp_recv_int` | `dreq_mux_net_1_2`, `req_arb_2_1`, `axis_mux_user_tcp` (by `tid`) |
+| `sq_wr`, `cq_wr`, `axis_tcp_send[N_TCP_AXI]` (TCP TX) | `sq_wr` sends `len` bytes on `sid` from `axis_tcp_send[dest]`; `cq_wr` if `last` | `remote_sq_wr_tcp`, `tcp_sq_wr`, `tcp_cq_wr`, `axis_tcp_send_int` | `dreq_mux_net_1_2`, `remote_credits_wr_tcp`, `meta_arb_2_1` |
 | `axis_rx_sniffer`, `axis_tx_sniffer`, `filter_config` | Only on vFPGA `SNIFFER_VFPGA_ID` | `rx_sniffer`, `tx_sniffer`, `filter_config` | [dynamic_top_tmplt.txt](../../../hw/templates/common/dynamic_top_tmplt.txt) (`cnfg.sniffer_vfpga_id` block) |
 
 - `N_RDMA_AXI` = number of destination streams per vFPGA (indexed by `dest`; example 09 keeps `N_RDMA_AXI=1`; its 0/1 convention is on the *host* streams (`N_STRM_AXI=2`: index 0 = requester side, 1 = responder side, see its [vfpga_top.svh](../../../examples/09_perf_rdma/hw/src/vfpga_top.svh)). `N_RDMA_AXI>1` sets `MULT_RDMA_AXI`.
 - **ID encoding**: `req_t`/`ack_t` carry `vfid` (`DEST_BITS`=4 = CMake `DATA_DEST_BITS`), `pid` (`PID_BITS`=6, = ctid), `dest`, `strm`, `host`. QPN = `{vfid, pid}`. The HLS stack only sees QPN; vfid/pid are recovered from the same bits in the memory command / ACK metadata (`roce_stack.sv` unpack: `pid = [32+:PID_BITS]`, `vfid = [32+PID_BITS+:DEST_BITS]`). `ack_t.host` distinguishes host-initiated from vFPGA-initiated commands (for completion routing).
 - Per-vFPGA register paths (ARP, QP ctx/conn) are *not* multiplexed by ID: arbitrated round-robin ([mmu_top.sv](../../../hw/hdl/mmu/mmu_top.sv) `meta_arbiter`), so all vFPGAs share one QP table and one ARP cache.
-- TCP: `tcp_arbiter` + `tcp_port_table` (listen ports, `TCP_PORT_ORDER=10` -> 1024 ports at `TCP_PORT_OFFS=49152`) + `tcp_conn_table` (session -> `{vfid,pid,dest}`), RX/TX arbiters per vFPGA ([tcp_rx_arbiter.sv](../../../hw/hdl/network/tcp/tcp_rx_arbiter.sv), [tcp_tx_arbiter.sv](../../../hw/hdl/network/tcp/tcp_tx_arbiter.sv)).
+- TCP sessions are owned per vFPGA and multiplexed by `tcp_rx`/`tcp_tx`: see [5.1](#51-tcpip-toe-on-the-generic-interfaces).
+
+### 5.1 TCP/IP (TOE) on the generic interfaces
+
+The TOE ([toe/](../../../hw/services/network/hls/toe/), HLS) is one shared engine; the shell multiplexes it over the vFPGAs so that no vFPGA can block, starve or use another vFPGA's sessions. TOE build options as used by Coyote: `TCP_STACK_RX_DDR_BYPASS_EN=1` (RX data goes through one shared, in-order FIFO, not DDR; the only supported mode, NET-01), `TCP_STACK_NODELAY_EN=1`, window scaling on (shift 2), `TCP_STACK_MSS=4096`, `TCP_STACK_MAX_SESSIONS` (512, at most 1024).
+
+**Connection management** stays in SW: `cThread::listenTcp`/`stopListenTcp`/`openConnTcp`/`closeConnTcp` write `TCP_OPEN_PORT_REG`/`TCP_OPEN_CONN_REG`/`TCP_CLOSE_CONN_REG` in `cnfg_slave`. The vFPGA sees data only (no opened/closed events); a server learns a session's sid from its first `rq_wr`.
+
+**Ownership.** Every session has an owner, the index of the vFPGA it belongs to (4 bits).
+- `tcp_port_table` puts the vFPGA index into each listen request (`tcp_listen_req_t.owner`); it answers locally (without the TOE) a listen on another vFPGA's port and a stop on a port the vFPGA does not own. `tcp_conn_table` puts it into each open request (`tcp_open_req_t.owner`).
+- In the TOE, `port_table` stores the owner per listening port. A SYN creates a session only on a listening port (< 32768; client ports are >= 32768), and the session takes the port's owner (`rx_engine`, `rxTcpFSM`). An active open writes the requester's owner into `rx_sar_table` before its SYN (`tx_app_if`). Every notification carries the owner (`tcp_notify_t.owner`).
+- `tcp_conn_table` keeps a sid -> owner table (1024 entries): learned from opened notifications and successful opens, cleared on closed notifications, flushed for 1024 cycles after reset. It checks closes (only the owner's are forwarded) and answers `tcp_tx`'s owner lookup (RAM port b, two cycles). A sid >= 1024 has no owner.
+
+**RX.** Flow control is per vFPGA and lives in the TOE, because received data is unsolicited (no request exists that could hold a credit).
+- Credit (`rx_sar_table`): each owner has `TCP_RX_QUEUE_BYTES/64` beats (`RX_CREDIT`; CMake sets the TOE's `TCP_STACK_RX_QUEUE_SIZE`). A segment is admitted only in order, with room in the TOE FIFO and `credit >= ceil(len/64)`; admitting takes the credit. A segment that is not admitted is dropped without an ACK and the peer retransmits.
+- Window: the TOE advertises `min(appd - recvd - 1, 64 * credit) >> win_shift`, also in the SYN-ACK, capped at 0xFFFF for a peer without window scaling. A vFPGA that stops reading runs out of credit, so its sessions advertise 0 and only its peers stop. The TOE sends no window update when credit returns; a closed window reopens with the peer's retransmission or zero-window probe, which the TOE answers (`ACK_NODELAY` for a zero-length segment below `recvd`). With Linux peers that takes at least one RTO (>= 200 ms).
+- `tcp_conn_table` forwards data notifications (`len != 0`) to `tcp_rx` in TOE order; opened/closed notifications only update its table.
+- `tcp_rx` drains the shared FIFO: for every notification it issues `rd_pkg` at once and records `{owner, len, sid}` (`inst_route_q`); the segment's beats go into the owner's data FIFO (`axis_data_fifo_512_tcp_rx`, at least `RX_CREDIT` deep, so it always has room) and, with the last beat, a `{len, sid}` entry into the owner's notify FIFO. The drain never waits for a vFPGA. Segments of an owner >= `N_REGIONS` are read out and discarded.
+- Per vFPGA, the head notify entry is sent as `rq_wr` (`strm=STRM_TCP`, `sid`, `len`, `last=1`) and moves to the read FIFO when `rq_wr` is accepted. An `sq_rd` must match the head of the read FIFO: same `sid`, `1 <= len <= bytes left`, `dest < N_TCP_AXI`, and a multiple of 64 B unless it reads the rest (segments are packed from byte 0, so partial reads stay beat-aligned). Otherwise, or if no segment is queued, it gets no data and a completion with `TCP_ERR_BAD_REQ`. Data goes out on one AXI4SR stream with `tid = dest`, which the wrapper splits into `axis_tcp_recv[dest]` (`axis_mux_user_tcp`); `tlast` and a `cq_rd` only if `last = 1`.
+- Credit is returned as beats leave a data FIFO (or are discarded): per-owner 12-bit counters, visited in turn, one `{beats[15:4], owner[3:0]}` per cycle on `s_axis_rx_credit` (through `tcp_ccross_late_net` to the TOE). One vFPGA's RX rate is at most `TCP_RX_QUEUE_BYTES` per RTT (64 KB: about 50 Gbit/s at 10 us).
+
+**TX.** Flow control is issuer-side, like RDMA writes: a chunk goes to the shell only with its payload buffered.
+- Wrapper ([user_wrapper_tmplt.txt](../../../hw/templates/common/user_wrapper_tmplt.txt)): `dreq_mux_net_1_2 #(.RD(0))` splits the vFPGA's TCP writes from its RDMA writes before `inst_arb_remote_wr` merges the host's RDMA writes (same for reads with `RD(1)`), so host RDMA never queues behind TCP. `remote_credits_wr_tcp` (per dest: `queue_meta` of 4, `req_tcp_parser_wr` cuts `PMTU_TCP` chunks with `last` only on the final one, `req_credits_wr` releases a chunk once its beats are in `axis_data_fifo_512_tcp`, `N_OUTSTANDING * PMTU_TCP` deep) sends the released chunks on `tcp_sq_wr` and their data, in the same order, on one stream (`dest_req_arb` + `axis_mux_user_wr`).
+- `tcp_tx` ([tcp_tx.sv](../../../hw/hdl/network/tcp/tcp_tx.sv)) holds one head chunk per vFPGA (`head_left`: bytes not sent, `head_next`: bytes for the next meta) and serves them in round robin, one chunk per turn (R2: a turn is at most `PMTU_TCP` bytes):
+  1. pick the next eligible vFPGA (head chunk present and room for one more completion);
+  2. owner lookup (two cycles), then check: `len = 0` -> `TCP_ERR_BAD_REQ`, not the owner -> `TCP_ERR_NOT_OWNER`; a rejected chunk's data is dropped and the TOE is not asked;
+  3. one meta `{sid, head_next}` at the TOE, then its `tx_stat`: OK -> send `head_next` bytes; NOSPACE -> the chunk stays and `head_next` becomes `min(head_left, remaining_space & ~63)` (if that is at least 64 B), and the turn passes on; not established -> drop the rest (`TCP_ERR_NOT_ESTABLISHED`).
+- Each decision queues one entry `{vfid, len, send/drop, completion}` (`inst_send_q`) for the data FSM, which moves `ceil(len/64)` beats from that vFPGA's stream to the TOE or drops them, with its own `tlast`/`tkeep` (the vFPGA's are ignored). The next meta is sent while the previous chunk's data still moves: chunks run at line rate while the meta round trip (estimated 40-60 cycles through the slices and crossings, plus about 8 cycles per chunk; not measured on hardware) is shorter than the chunk's beats, i.e. from about 4 KB; 1 KB chunks reach about a third.
+- `cq_wr` comes only for a chunk with `last = 1`, after its last beat went to the TOE, with that chunk's error (a request with `last = 0` never gets a completion, also on errors). It means the TOE holds the data, not that the peer ACKed it. Each vFPGA has a completion queue of 8; a completion is booked (`cq_cnt`) when it is decided, and a vFPGA is only picked while `cq_cnt < 8`, so the queue never overflows and a vFPGA that ignores `cq_wr` only stops itself.
+- Error codes in `ack_t.rsrvd[3:0]` (RX and TX): `TCP_ERR_NOT_OWNER=1`, `TCP_ERR_NOT_ESTABLISHED=2`, `TCP_ERR_BAD_REQ=3`.
+
+**Wrapper merges:** `inst_rq_arbiter` (`req_arb_2_1`) merges TCP and RDMA `rq_wr`. Bypass completions ignore `ready` (`cnfg_slave`), so they are queued first (`cq_arb` with RDMA, `queue_meta` without), then `meta_arb_2_1` adds TCP `cq_rd`/`cq_wr`. In TCP-only builds the RDMA outputs of both splits are dropped (`ready = 1`).
+
+**Isolation summary**
+
+| A vFPGA that ... | Effect | Why others are not affected |
+|---|---|---|
+| does not read RX data | its credit runs out; its sessions advertise window 0 and drop | `tcp_rx` drains into per-vFPGA queues; credit is per owner |
+| sends a short payload or no `tlast` | its chunk is never released | store and forward in its wrapper; `tcp_tx` makes its own `tlast` |
+| has a session with a small window | its head chunk waits (NOSPACE) | the round robin passes on after every NOSPACE |
+| ignores `cq_wr` / `cq_rd` | it stops being picked / its read path stops | per-vFPGA completion queues and booking |
+| uses a sid it does not own | `TCP_ERR_NOT_OWNER`, data dropped | owner check before every meta; owners only for sid < 1024 |
+| issues an `sq_rd` that does not match | `TCP_ERR_BAD_REQ`, no data | checked per vFPGA queue |
+
+Within one vFPGA, its TCP and RDMA requests share the split muxes, so a full TCP path holds that vFPGA's own later RDMA requests, and a NOSPACE head chunk holds its other sessions. Known limits: NET-15 (TOE RX after FIN with data), NET-16, NET-17 (reconfiguring a vFPGA while its chunk is in flight), USR-10 in [known_issues.md](../known_issues.md). After a vFPGA is reconfigured, its sessions, queued RX data and owners remain and pass to the next app.
 
 ## 6. Clocks, CDC and slicing
 - Three relevant clocks ([shell_ctrl_tmplt.txt](../../../hw/templates/common/shell_ctrl_tmplt.txt), `clk_wiz_0` in [cr_ctrl.tcl](../../../hw/bd/ultrascale_plus/cr_ctrl.tcl): aclk/nclk/uclk are outputs of one MMCM with phase alignment): `rclk` (CMAC `usr_clk`, 322 MHz), `nclk` (`NCLK_F`, default 250 MHz), `aclk` (shell, `ACLK_F`), plus `uclk` for user logic. Details: [shell_top.md](../shell/shell_top.md).
@@ -206,7 +251,7 @@ For `REMOTE_RDMA_READ` the SW swaps source/destination roles in `invoke`; only t
 - Late crossing nclk -> aclk is always instantiated (`CROSS_LATE=1`): control and data of RDMA/TCP (`rdma_ccross_net_late`, `tcp_ccross_late_net`, `network_ccross_late`) via `axis_clock_converter_*`/async `axis_data_fifo_*_ccross_*`; `ENABLED=0` would just wire through. Stats/IP/MAC/ARP also cross here.
 - **The sniffer streams and `s_filter_config` are NOT crossed and not decoupled**: they leave `network_stack` at `n_clk` and are wired straight into the user wrapper ([dynamic_top_tmplt.txt](../../../hw/templates/common/dynamic_top_tmplt.txt), `cnfg.sniffer_vfpga_id` block): no nclk->aclk CDC, no aclk->uclk CDC, no PR decoupler. It works by default only because `NCLK_F == ACLK_F == 250` come from the same phase-aligned MMCM; changing `NCLK_F`/`UCLK_F` or reconfiguring the sniffer vFPGA needs extra logic.
 - Pipeline/slice depths (CMake `NR_*`): `NR_N_S0` (6, aclk-side slices in network_top), `NR_N_S1` (4, early CDC), `NR_N_S2` (5, CMAC side), `NR_DN_S0/S1` (3/3, dynamic layer), `NR_NST` (4, stats). Increase if timing fails on SLR crossings.
-- vFPGA side: `rdma_ccross_ul` / `tcp_ccross_ul` cross aclk -> uclk only if `EN_UCLK`; decouplers (`meta_decoupler`, `axis_decoupler`) sit at the PR boundary on all RDMA/TCP interfaces, including the completion path (`rdma_meta_rx_arbiter` -> `rdma_cq_s1..s3` -> decoupler) ([dynamic_top_tmplt.txt](../../../hw/templates/common/dynamic_top_tmplt.txt)).
+- vFPGA side: `rdma_ccross_ul` / `tcp_ccross_ul` (TCP data streams; the TCP descriptors use `meta_ccross`) cross aclk -> uclk only if `EN_UCLK`; decouplers (`meta_decoupler`, `axis_decoupler`) sit at the PR boundary on all RDMA/TCP interfaces, including the completion path (`rdma_meta_rx_arbiter` -> `rdma_cq_s1..s3` -> decoupler) ([dynamic_top_tmplt.txt](../../../hw/templates/common/dynamic_top_tmplt.txt)).
 
 ## 7. Packet sniffer
 - Enable: `EN_SNIFFER=1`, `SNIFFER_VFPGA_ID=<i>` (only that vFPGA gets the ports). Example 11 builds with `EN_RDMA=1`, `EN_MEM=1`, `EN_STRM=0`, `N_REGIONS=1`.
@@ -222,7 +267,8 @@ Set before `find_package(CoyoteHW)`/`validation_checks_hw()` in the example `CMa
 | Knob | Default | Effect |
 |---|---|---|
 | `EN_RDMA` | 0 | Build `rocev2`, `roce_stack`, per-vFPGA RDMA ports, 4 writeback blocks (`N_WBS=4`), adds card-memory channel |
-| `EN_TCP` | 0 | Build `toe`+`hash_table`, TCP ports. **Broken in current templates** (NET-01) |
+| `EN_TCP` | 0 | Build `toe`+`hash_table`, TCP ports |
+| `TCP_RX_QUEUE_BYTES` | 65536 | Per-vFPGA TCP RX queue and initial TOE RX credit (multiple of 64, <= 4095 x 64); sets the TOE's `TCP_STACK_RX_QUEUE_SIZE` |
 | `EN_SNIFFER`, `SNIFFER_VFPGA_ID` | 0, 0 | Sniffer RTL and ports on one vFPGA |
 | `EN_NET_0` / `EN_NET_1` | 1 / 0 | QSFP port (GT quad) for the single CMAC; both set = fatal error. Reported to SW via `rdma_cnfg[1]`/`tcp_cnfg[1]` -> `qsfp` |
 | `N_RDMA_AXI`, `N_TCP_AXI` | 1, 1 | Network data streams per vFPGA |
@@ -258,7 +304,7 @@ Runtime IP/MAC must differ per node and the peer must be on the same /24 (subnet
 | 36 | 9 | `NET_ARP_REG` | W: `[31:0]` IP to look up (byte-reversed into the request); R: `[0]` request ready |
 | 40,41,42 | 10 | `RDMA_CTX_REG_0..2` | `0`: `[23:0]` qpn, `[63:32]` rkey; `1`: `[23:0]` local PSN, `[47:24]` remote PSN; `2`: `[47:0]` remote vaddr (**write triggers post**; R `[0]` ready) |
 | 44,45,46 | 11 | `RDMA_CONN_REG_0..2` | `0`: `[15:0]` local QPN, `[39:16]` remote QPN, `[55:40]` port; `1`,`2`: remote GID 128 b (**write of 2 triggers post**) |
-| 48/52/56/60 | 12-15 | `TCP_OPEN_PORT/STAT`, `TCP_OPEN_CONN/STAT` | TCP listen/open; **no SW API uses them** |
+| 48/52/56/60 | 12-15 | `TCP_OPEN_PORT/STAT`, `TCP_OPEN_CONN/STAT` | TCP listen/open (`cThread::listenTcp`, `stopListenTcp`, `openConnTcp`) |
 | 64+ctid | 64+ctid | `STAT_DMA_REG` | completion counters per ctid; RDMA RD/WR counters in AVX word fields 2/3 (legacy: `STAT_RDMA_REG` 128+ctid) |
 | 0,1,2,3 | 0 | `CTRL_REG`, `VADDR_RD`, `CTRL_REG_2`, `VADDR_WR` | Command post; bit 21 (`CTRL_START` in SW = `CTRL_ACTV_OFFS` in RTL) triggers; `strm` field selects local vs remote (`is_strm_local`) |
 
@@ -323,7 +369,7 @@ See also [v80-notes.rst](../../../docs/source/intro/v80-notes.rst) ("Networking 
 - SW handshake: `usleep` after `writeQpContext`/`doArpLookup` is the only synchronisation (`ready` bits are not polled); the server must start first and accepts one connection per `initRDMA` (a server can call `initRDMA` again on the same port, `SO_REUSEADDR`). Server `closeConn` blocks in `read()` until the client sends `DEF_OP_CLOSE_CONN` or disconnects (NET-14).
 - Change HLS sources by committing in the `hw/services/network` submodule and bumping the pointer in the parent repo.
 
-Known defects in this area: [known_issues.md](../known_issues.md) (`NET-*`, `MMU-16`, `MMU-17`, `MEM-12`, `REG-05`, `REG-07`, `DOC-03`).
+Known defects in this area: [known_issues.md](../known_issues.md) (`NET-*`, `MMU-16`, `MEM-12`, `REG-05`, `DOC-03`).
 
 ## How to modify / extend
 
