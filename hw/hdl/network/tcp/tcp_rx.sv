@@ -196,7 +196,7 @@ for (genvar i = 0; i < N_REGIONS; i++) begin : GEN_REGION
     always_ff @(posedge aclk) begin
         if (!aresetn) begin
             r_state_C <= R_IDLE;
-            rd_C      <= '0;
+            rd_C      <= 'X;
             err_C     <= 1'b0;
             offs_C    <= '0;
             cnt_C     <= '0;
@@ -288,7 +288,7 @@ always_ff @(posedge aclk) begin
         crd_C     <= '0;
         crd_ptr_C <= '0;
         crd_vld_C <= 1'b0;
-        crd_out_C <= '0;
+        crd_out_C <= 'X;
     end else begin
         for (int o = 0; o < N_OWNERS; o++) begin
             crd_C[o] <= ((crd_ld && (crd_ptr_C == o)) ? 0 : crd_C[o])

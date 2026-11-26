@@ -64,9 +64,10 @@ if (aresetn == 1'b0) begin
 	cnt_C <= 0;
     xfer_int <= 1'b0;
 end
-else
+else begin
     cnt_C <= cnt_N;
     xfer_int <= xfer;
+end
 end
 
 // -- DP
