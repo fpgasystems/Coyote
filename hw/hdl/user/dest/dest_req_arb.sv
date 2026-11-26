@@ -123,7 +123,7 @@ always_comb begin
 end
 
 assign n_tr = (request_snk[dest].len - 1) >> BEAT_LOG_BITS;
-assign user_seq_in.valid = valid_src & ready_src;
+assign user_seq_in.valid = valid_src & ready_src & (request_snk[dest].len != 0); // len = 0: no data
 assign user_seq_in.data.pid = request_snk[dest].pid;
 assign user_seq_in.data.len = n_tr;
 assign user_seq_in.data.dest = dest;
