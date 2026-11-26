@@ -1102,6 +1102,25 @@ int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, i
     return 0;
 }
 
+int p2p_dma_buf_bus_addr(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, uint64_t *bus_addr) {
+    BUG_ON(!device);
+    struct bus_driver_data *bd_data = device->bd_data;
+    BUG_ON(!bd_data);
+
+    uint64_t vaddr_tmp = (vaddr & bd_data->stlb_meta->page_mask) >> bd_data->stlb_meta->page_shift;
+
+    // The map is keyed by each buffer's first page and vaddr may be anywhere inside one: scan it all
+    struct user_pages *tmp_entry;
+    int bkt;
+    hash_for_each(user_buff_map[device->id][ctid], bkt, tmp_entry, entry) {
+        if (tmp_entry->buf && vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp < tmp_entry->vaddr + tmp_entry->n_pages) {
+            *bus_addr = tmp_entry->hpages[vaddr_tmp - tmp_entry->vaddr] + (vaddr & (bd_data->stlb_meta->page_size - 1));
+            return 0;
+        }
+    }
+    return -EINVAL;
+}
+
 #else
 void p2p_move_notify(struct dma_buf_attachment *attach){
     pr_warn("DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
@@ -1113,6 +1132,11 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
 }
 
 int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, int dirtied) {
+    pr_warn("DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
+    return -1;
+}
+
+int p2p_dma_buf_bus_addr(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, uint64_t *bus_addr) {
     pr_warn("DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
     return -1;
 }
