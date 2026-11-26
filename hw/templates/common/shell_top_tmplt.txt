@@ -765,6 +765,7 @@ module shell_top (
     metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_rx_meta  ();
     metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_tx_meta  ();
     metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_tx_stat  ();
+    metaIntf #(.STYPE(tcp_rx_credit_t)) tcp_rx_credit  ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_rx  ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx  ();
 
@@ -834,6 +835,7 @@ module shell_top (
         .m_tcp_rx_meta(tcp_rx_meta),
         .s_tcp_tx_meta(tcp_tx_meta),
         .m_tcp_tx_stat(tcp_tx_stat),
+        .s_tcp_rx_credit(tcp_rx_credit),
         .s_axis_tcp_tx(axis_tcp_tx),
         .m_axis_tcp_rx(axis_tcp_rx),   
         .s_ddr_offset_addr_tcp(ddr_offset_addr_tcp), 
@@ -1522,6 +1524,7 @@ module shell_top (
         .s_tcp_rx_meta(tcp_rx_meta),
         .m_tcp_tx_meta(tcp_tx_meta),
         .s_tcp_tx_stat(tcp_tx_stat),
+        .m_tcp_rx_credit(tcp_rx_credit),
         .s_axis_tcp(axis_tcp_rx),
         .m_axis_tcp(axis_tcp_tx),
 {% endif %}

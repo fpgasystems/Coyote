@@ -108,6 +108,7 @@ set cfg(pmtu_host)              ${PMTU_HOST}
 set cfg(pmtu_card)              ${PMTU_CARD}
 set cfg(pmtu_rdma)              ${PMTU_RDMA}
 set cfg(pmtu_tcp)               ${PMTU_TCP}
+set cfg(tcp_rx_queue_bytes)     ${TCP_RX_QUEUE_BYTES}
 set cfg(cores)                  ${COMP_CORES}
 set cfg(build_opt)              ${BUILD_OPT}
 set cfg(stat_probe)             ${STATIC_PROBE}

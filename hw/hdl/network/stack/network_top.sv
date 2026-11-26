@@ -91,6 +91,7 @@ module network_top #(
     metaIntf.m                  m_tcp_rx_meta,
     metaIntf.s                  s_tcp_tx_meta,
     metaIntf.m                  m_tcp_tx_stat,
+    metaIntf.s                  s_tcp_rx_credit,
     AXI4S.s                     s_axis_tcp_tx,
     AXI4S.m                     m_axis_tcp_rx,  
 
@@ -248,6 +249,7 @@ metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_rd_pkg_n_clk (.aclk(n_clk), .aresetn(n_rese
 metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_rx_meta_n_clk (.aclk(n_clk), .aresetn(n_resetn));
 metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_tx_meta_n_clk (.aclk(n_clk), .aresetn(n_resetn));
 metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_tx_stat_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(tcp_rx_credit_t)) tcp_rx_credit_n_clk (.aclk(n_clk), .aresetn(n_resetn));
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_rx_n_clk (.aclk(n_clk), .aresetn(n_resetn));
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_n_clk (.aclk(n_clk), .aresetn(n_resetn));
 
@@ -261,6 +263,7 @@ metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_rd_pkg_aclk (.*);
 metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_rx_meta_aclk (.*);
 metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_tx_meta_aclk (.*);
 metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_tx_stat_aclk (.*);
+metaIntf #(.STYPE(tcp_rx_credit_t)) tcp_rx_credit_aclk (.*);
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_rx_aclk (.*);
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_aclk (.*);
 
@@ -327,6 +330,7 @@ network_stack inst_network_stack (
     .m_tcp_rx_meta(tcp_rx_meta_n_clk),
     .s_tcp_tx_meta(tcp_tx_meta_n_clk),
     .m_tcp_tx_stat(tcp_tx_stat_n_clk),
+    .s_tcp_rx_credit(tcp_rx_credit_n_clk),
     .s_axis_tcp_tx(axis_tcp_tx_n_clk),
     .m_axis_tcp_rx(axis_tcp_rx_n_clk),
 
@@ -535,6 +539,7 @@ network_slice_array #(
         .s_tcp_rx_meta_nclk(tcp_rx_meta_n_clk),
         .m_tcp_tx_meta_nclk(tcp_tx_meta_n_clk),
         .s_tcp_tx_stat_nclk(tcp_tx_stat_n_clk),
+        .m_tcp_rx_credit_nclk(tcp_rx_credit_n_clk),
         .m_axis_tcp_tx_nclk(axis_tcp_tx_n_clk),
         .s_axis_tcp_rx_nclk(axis_tcp_rx_n_clk),
 
@@ -557,6 +562,7 @@ network_slice_array #(
         .m_tcp_rx_meta_aclk(tcp_rx_meta_aclk),
         .s_tcp_tx_meta_aclk(tcp_tx_meta_aclk),
         .m_tcp_tx_stat_aclk(tcp_tx_stat_aclk),  
+        .s_tcp_rx_credit_aclk(tcp_rx_credit_aclk),
         .s_axis_tcp_tx_aclk(axis_tcp_tx_aclk),
         .m_axis_tcp_rx_aclk(axis_tcp_rx_aclk),
 
@@ -588,6 +594,7 @@ network_slice_array #(
         .s_tcp_rx_meta_n(tcp_rx_meta_aclk),
         .m_tcp_tx_meta_n(tcp_tx_meta_aclk),
         .s_tcp_tx_stat_n(tcp_tx_stat_aclk),
+        .m_tcp_rx_credit_n(tcp_rx_credit_aclk),
         .m_axis_tcp_tx_n(axis_tcp_tx_aclk),
         .s_axis_tcp_rx_n(axis_tcp_rx_aclk),
         
@@ -603,6 +610,7 @@ network_slice_array #(
         .m_tcp_rx_meta_u(m_tcp_rx_meta),
         .s_tcp_tx_meta_u(s_tcp_tx_meta),
         .m_tcp_tx_stat_u(m_tcp_tx_stat),
+        .s_tcp_rx_credit_u(s_tcp_rx_credit),
         .s_axis_tcp_tx_u(s_axis_tcp_tx),
         .m_axis_tcp_rx_u(m_axis_tcp_rx),
         

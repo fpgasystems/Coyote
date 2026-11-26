@@ -50,6 +50,7 @@ module tcp_ccross_late_net #(
     metaIntf.s              s_tcp_rx_meta_nclk,
     metaIntf.m              m_tcp_tx_meta_nclk,
     metaIntf.s              s_tcp_tx_stat_nclk,
+    metaIntf.m              m_tcp_rx_credit_nclk,
     AXI4S.s                 s_axis_tcp_rx_nclk,
     AXI4S.m                 m_axis_tcp_tx_nclk, 
 
@@ -71,6 +72,7 @@ module tcp_ccross_late_net #(
     metaIntf.m              m_tcp_rx_meta_aclk,
     metaIntf.s              s_tcp_tx_meta_aclk,
     metaIntf.m              m_tcp_tx_stat_aclk,
+    metaIntf.s              s_tcp_rx_credit_aclk,
     AXI4S.m                 m_axis_tcp_rx_aclk,
     AXI4S.s                 s_axis_tcp_tx_aclk,               
 
@@ -94,7 +96,7 @@ if(ENABLED == 1) begin
 // ---------------------------------------------------------------------------------------------------
 
     // Port request and responses
-    axis_data_fifo_tcp_ccross_16 inst_tcp_listen_req (
+    axis_data_fifo_tcp_ccross_40 inst_tcp_listen_req (
         .m_axis_aclk(nclk),
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
@@ -119,7 +121,7 @@ if(ENABLED == 1) begin
     );
 
     // Open, close requests and responses
-    axis_data_fifo_tcp_ccross_48 inst_tcp_open_req (
+    axis_data_fifo_tcp_ccross_64 inst_tcp_open_req (
         .m_axis_aclk(nclk),
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
@@ -217,6 +219,19 @@ if(ENABLED == 1) begin
         .m_axis_tvalid(m_tcp_tx_stat_aclk.valid),
         .m_axis_tready(m_tcp_tx_stat_aclk.ready),
         .m_axis_tdata (m_tcp_tx_stat_aclk.data)
+    );
+
+    // RX credit
+    axis_data_fifo_tcp_ccross_16 inst_tcp_rx_credit (
+        .m_axis_aclk(nclk),
+        .s_axis_aclk(aclk),
+        .s_axis_aresetn(aresetn),
+        .s_axis_tvalid(s_tcp_rx_credit_aclk.valid),
+        .s_axis_tready(s_tcp_rx_credit_aclk.ready),
+        .s_axis_tdata (s_tcp_rx_credit_aclk.data),
+        .m_axis_tvalid(m_tcp_rx_credit_nclk.valid),
+        .m_axis_tready(m_tcp_rx_credit_nclk.ready),
+        .m_axis_tdata (m_tcp_rx_credit_nclk.data)
     );
 
     axis_data_fifo_tcp_ccross_512 inst_tcp_tx_data (
@@ -341,7 +356,7 @@ if(ENABLED == 1) begin
 end
 else begin
 
-    axis_data_fifo_tcp_16 inst_reg_tcp_listen_req (
+    axis_data_fifo_tcp_32 inst_reg_tcp_listen_req (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_tcp_listen_req_aclk.valid),
@@ -363,7 +378,7 @@ else begin
         .m_axis_tdata (m_tcp_listen_rsp_aclk.data)
     );
 
-    axis_data_fifo_tcp_48 inst_reg_tcp_open_req (
+    axis_data_fifo_tcp_64 inst_reg_tcp_open_req (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_tcp_open_req_aclk.valid),
@@ -449,6 +464,17 @@ else begin
         .m_axis_tvalid(m_tcp_tx_stat_aclk.valid),
         .m_axis_tready(m_tcp_tx_stat_aclk.ready),
         .m_axis_tdata (m_tcp_tx_stat_aclk.data)
+    );
+
+    axis_data_fifo_tcp_16 inst_reg_tcp_rx_credit (
+        .s_axis_aclk(aclk),
+        .s_axis_aresetn(aresetn),
+        .s_axis_tvalid(s_tcp_rx_credit_aclk.valid),
+        .s_axis_tready(s_tcp_rx_credit_aclk.ready),
+        .s_axis_tdata (s_tcp_rx_credit_aclk.data),
+        .m_axis_tvalid(m_tcp_rx_credit_nclk.valid),
+        .m_axis_tready(m_tcp_rx_credit_nclk.ready),
+        .m_axis_tdata (m_tcp_rx_credit_nclk.data)
     );
 
     axis_data_fifo_tcp_512 inst_tcp_rx_data (

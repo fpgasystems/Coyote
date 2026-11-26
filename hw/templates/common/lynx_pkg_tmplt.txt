@@ -298,10 +298,9 @@ package lynxTypes;
     localparam integer TCP_PORT_OFFS = 49152;
     localparam integer TCP_PORT_ORDER = 10;
     localparam integer TCP_RSESSION_BITS = DEST_BITS + PID_BITS + DEST_BITS;
-    localparam integer TCP_PORT_TABLE_DATA_BITS = 16;
-    localparam integer TCP_PORT_REQ_BITS = 16;
+    localparam integer TCP_PORT_REQ_BITS = 24;
     localparam integer TCP_PORT_RSP_BITS = 8;
-    localparam integer TCP_OPEN_CONN_REQ_BITS = 48;
+    localparam integer TCP_OPEN_CONN_REQ_BITS = 56;
     localparam integer TCP_OPEN_CONN_RSP_BITS = 72;
     localparam integer TCP_CLOSE_CONN_REQ_BITS = 16;
     localparam integer TCP_NOTIFY_BITS = 88;
@@ -310,6 +309,8 @@ package lynxTypes;
     localparam integer TCP_TX_META_BITS = 32;
     localparam integer TCP_TX_STAT_BITS = 64;
     localparam integer TCP_RX_CREDIT_BITS = 16;
+    localparam integer TCP_OWNER_BITS = 4;
+    localparam integer TCP_CREDIT_BITS = 12;
 
     localparam integer TCP_IP_ADDRESS_BITS = 32;
     localparam integer TCP_IP_PORT_BITS = 16;
@@ -320,6 +321,9 @@ package lynxTypes;
     localparam integer TCP_ERROR_BITS = 2;
     localparam integer TCP_MEM_SHIFT = 0;
     localparam integer TCP_OPCODE = 0;
+
+    // TCP completion error, in ack_t.rsrvd[3:0]
+    localparam integer TCP_ERR_BAD_REQ = 3;
 
     // Legacy Enzian support - ECI
     localparam integer N_LANES = 12;
@@ -432,7 +436,9 @@ package lynxTypes;
         logic host; // rsrvd
         logic [OFFS_BITS-1:0] offs; // rsrvd
 
-        logic [128-OFFS_BITS-2-VADDR_BITS-LEN_BITS-1-2*DEST_BITS-PID_BITS-STRM_BITS-OPCODE_BITS-1:0] rsrvd;
+        logic [TCP_SESSION_BITS-1:0] sid; // TCP session (STRM_TCP only)
+
+        logic [128-TCP_SESSION_BITS-OFFS_BITS-2-VADDR_BITS-LEN_BITS-1-2*DEST_BITS-PID_BITS-STRM_BITS-OPCODE_BITS-1:0] rsrvd;
     } req_t;
 
     typedef struct packed {
@@ -646,6 +652,8 @@ package lynxTypes;
     //
 
     typedef struct packed {
+        logic [3:0] rsrvd;
+        logic [TCP_OWNER_BITS-1:0] owner;
         logic [TCP_IP_PORT_BITS-1:0] ip_port;
     } tcp_listen_req_t;
 
@@ -654,6 +662,8 @@ package lynxTypes;
     } tcp_listen_rsp_t;
 
     typedef struct packed {
+        logic [3:0] rsrvd;
+        logic [TCP_OWNER_BITS-1:0] owner;
         logic [TCP_IP_PORT_BITS-1:0] ip_port;
         logic [TCP_IP_ADDRESS_BITS-1:0] ip_address;
     } tcp_open_req_t;
@@ -671,7 +681,7 @@ package lynxTypes;
 
     typedef struct packed {
         logic [1:0] rsrvd;
-        logic [3:0] owner;
+        logic [TCP_OWNER_BITS-1:0] owner;
         logic opened;
         logic closed;
         logic [TCP_IP_PORT_BITS-1:0] dst_port;
@@ -685,15 +695,6 @@ package lynxTypes;
         logic [TCP_SESSION_BITS-1:0] sid;
     } tcp_rd_pkg_t;
 
-    // RX route entry: one per data notification, tcp_conn_table -> tcp_rx_arbiter
-    // (sink: the session has no owner, the shell reads and discards the data)
-    typedef struct packed {
-        logic sink;
-        logic [N_REGIONS_BITS-1:0] vfid;
-        logic [TCP_LEN_BITS-1:0] len;
-        logic [TCP_SESSION_BITS-1:0] sid;
-    } tcp_rx_route_t;
-
     typedef struct packed {
         logic [TCP_SESSION_BITS-1:0] sid;
     } tcp_rx_meta_t;
@@ -702,6 +703,12 @@ package lynxTypes;
         logic [TCP_LEN_BITS-1:0] len;
         logic [TCP_SESSION_BITS-1:0] sid;
     } tcp_tx_meta_t;
+
+    // RX credit returned to the TOE, in 64 B beats
+    typedef struct packed {
+        logic [TCP_CREDIT_BITS-1:0] beats;
+        logic [TCP_OWNER_BITS-1:0] owner;
+    } tcp_rx_credit_t;
 
     typedef struct packed {
         logic [TCP_ERROR_BITS-1:0] error;

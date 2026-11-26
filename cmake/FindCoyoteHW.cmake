@@ -149,6 +149,9 @@ set(EN_TCP 0 CACHE STRING "Enable TCP/IP stack.")
 # Number of TCP/IP streams, per vFPGA
 set(N_TCP_AXI 1 CACHE STRING "Number of TCP/IP streams")
 
+# TCP/IP RX queue per vFPGA [B]; also the initial RX credit of each vFPGA in the TOE
+set(TCP_RX_QUEUE_BYTES 65536 CACHE STRING "TCP/IP RX queue size per vFPGA [B]")
+
 # Packet sniffer
 set(EN_SNIFFER 0 CACHE STRING "Enable packet sniffer.")
 set(SNIFFER_VFPGA_ID 0 CACHE STRING "ID of vFPGA to receive packet sniffer data stream.")
@@ -366,6 +369,14 @@ macro(validation_checks_hw)
         # RoCE v2 MTU is at most 4096 B
         if(PMTU_RDMA GREATER 4096)
             message(FATAL_ERROR "PMTU_RDMA=${PMTU_RDMA} must not exceed 4096.")
+        endif()
+        # RX credit is returned to the TOE in 12-bit counts of 64 B beats
+        if(NOT TCP_RX_QUEUE_BYTES MATCHES "^[0-9]+$" OR TCP_RX_QUEUE_BYTES LESS 64 OR TCP_RX_QUEUE_BYTES GREATER 262080)
+            message(FATAL_ERROR "TCP_RX_QUEUE_BYTES=${TCP_RX_QUEUE_BYTES} must be a multiple of 64 between 64 and 262080 (4095 x 64).")
+        endif()
+        math(EXPR RX_Q_REM "${TCP_RX_QUEUE_BYTES} % 64")
+        if(NOT RX_Q_REM EQUAL 0)
+            message(FATAL_ERROR "TCP_RX_QUEUE_BYTES=${TCP_RX_QUEUE_BYTES} must be a multiple of 64 between 64 and 262080 (4095 x 64).")
         endif()
 
         if((SHELL_PROBE EQUAL STATIC_PROBE) AND BUILD_SHELL)
@@ -1059,6 +1070,8 @@ endmacro()
 # Generate build targets
 macro(gen_targets)
     if(EN_NET)
+        # The TOE's initial RX credit per owner matches the shell's RX queue (tcp_rx.sv)
+        set(TCP_STACK_RX_QUEUE_SIZE ${TCP_RX_QUEUE_BYTES} CACHE STRING "Per-owner RX queue size in bytes (initial RX credit)" FORCE)
         add_subdirectory(${CYT_DIR}/hw/services/network ${CMAKE_BINARY_DIR}/network)
         # TOE session ids index the shell session table (SID_ADDR_BITS in hw/hdl/network/tcp/tcp_conn_table.sv)
         if(EN_TCP AND TCP_STACK_MAX_SESSIONS GREATER 1024)

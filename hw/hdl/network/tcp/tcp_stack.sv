@@ -54,6 +54,7 @@ module tcp_stack #(
     metaIntf.m                  m_tcp_rx_meta,
     metaIntf.s                  s_tcp_tx_meta,
     metaIntf.m                  m_tcp_tx_stat,
+    metaIntf.s                  s_tcp_rx_credit,
 
     AXI4S.s                     s_axis_tcp_tx,
     AXI4S.m                     m_axis_tcp_rx,
@@ -136,21 +137,6 @@ assign m_tcp_mem_wr_cmd[ddrPortNetworkTx].data[64+:32] = {9'h00, axis_write_cmd_
 assign m_tcp_mem_rd_cmd[ddrPortNetworkTx].data[0+:64] = {32'h0000_0000, axis_read_cmd_data[ddrPortNetworkTx][63:32]};
 assign m_tcp_mem_rd_cmd[ddrPortNetworkTx].data[64+:32] = {9'h00, axis_read_cmd_data[ddrPortNetworkTx][22:0]};
 
-
-// RX credit {beats[11:0], owner[3:0]}, returned as the data leaves the TOE (all sessions are owned by owner 0).
-// The TOE uses credit only with RX_DDR_BYPASS_EN.
-logic [11:0] rx_credit_beats;
-
-always_ff @(posedge nclk) begin
-    if (!nresetn) begin
-        rx_credit_beats <= 0;
-    end else begin
-        rx_credit_beats <= (axis_rx_credit.ready ? 12'd0 : rx_credit_beats) + (m_axis_tcp_rx.tvalid & m_axis_tcp_rx.tready);
-    end
-end
-
-assign axis_rx_credit.valid = (RX_DDR_BYPASS_EN == 1) && (rx_credit_beats != 0);
-assign axis_rx_credit.data = {rx_credit_beats, 4'h0};
 
 //TOE Module with RX_DDR_BYPASS disabled
 if (RX_DDR_BYPASS_EN == 0) begin
@@ -239,7 +225,7 @@ toe_ip toe_inst_nb (
 // listen&close port
 .s_axis_listen_port_req_TVALID(axis_listen_port.valid),
 .s_axis_listen_port_req_TREADY(axis_listen_port.ready),
-.s_axis_listen_port_req_TDATA({8'h0, axis_listen_port.data}), // owner 0
+.s_axis_listen_port_req_TDATA(axis_listen_port.data),
 .m_axis_listen_port_rsp_TVALID(axis_listen_port_status.valid),
 .m_axis_listen_port_rsp_TREADY(axis_listen_port_status.ready),
 .m_axis_listen_port_rsp_TDATA(axis_listen_port_status.data),
@@ -255,7 +241,7 @@ toe_ip toe_inst_nb (
 // open&close connection
 .s_axis_open_conn_req_TVALID(axis_open_connection.valid),
 .s_axis_open_conn_req_TREADY(axis_open_connection.ready),
-.s_axis_open_conn_req_TDATA({8'h0, axis_open_connection.data}), // owner 0
+.s_axis_open_conn_req_TDATA(axis_open_connection.data),
 .m_axis_open_conn_rsp_TVALID(axis_open_status.valid),
 .m_axis_open_conn_rsp_TREADY(axis_open_status.ready),
 .m_axis_open_conn_rsp_TDATA(axis_open_status.data),
@@ -379,7 +365,7 @@ toe_ip toe_inst_nb (
 // listen&close port
 .s_axis_listen_port_req_V_TVALID(axis_listen_port.valid),
 .s_axis_listen_port_req_V_TREADY(axis_listen_port.ready),
-.s_axis_listen_port_req_V_TDATA({8'h0, axis_listen_port.data}), // owner 0
+.s_axis_listen_port_req_V_TDATA(axis_listen_port.data),
 .m_axis_listen_port_rsp_V_TVALID(axis_listen_port_status.valid),
 .m_axis_listen_port_rsp_V_TREADY(axis_listen_port_status.ready),
 .m_axis_listen_port_rsp_V_TDATA(axis_listen_port_status.data),
@@ -395,7 +381,7 @@ toe_ip toe_inst_nb (
 // open&close connection
 .s_axis_open_conn_req_V_TVALID(axis_open_connection.valid),
 .s_axis_open_conn_req_V_TREADY(axis_open_connection.ready),
-.s_axis_open_conn_req_V_TDATA({8'h0, axis_open_connection.data}), // owner 0
+.s_axis_open_conn_req_V_TDATA(axis_open_connection.data),
 .m_axis_open_conn_rsp_V_TVALID(axis_open_status.valid),
 .m_axis_open_conn_rsp_V_TREADY(axis_open_status.ready),
 .m_axis_open_conn_rsp_V_TDATA(axis_open_status.data),
@@ -515,7 +501,7 @@ toe_ip toe_inst_b (
 // listen&close port
 .s_axis_listen_port_req_TVALID(axis_listen_port.valid),
 .s_axis_listen_port_req_TREADY(axis_listen_port.ready),
-.s_axis_listen_port_req_TDATA({8'h0, axis_listen_port.data}), // owner 0
+.s_axis_listen_port_req_TDATA(axis_listen_port.data),
 .m_axis_listen_port_rsp_TVALID(axis_listen_port_status.valid),
 .m_axis_listen_port_rsp_TREADY(axis_listen_port_status.ready),
 .m_axis_listen_port_rsp_TDATA(axis_listen_port_status.data),
@@ -531,7 +517,7 @@ toe_ip toe_inst_b (
 // open&close connection
 .s_axis_open_conn_req_TVALID(axis_open_connection.valid),
 .s_axis_open_conn_req_TREADY(axis_open_connection.ready),
-.s_axis_open_conn_req_TDATA({8'h0, axis_open_connection.data}), // owner 0
+.s_axis_open_conn_req_TDATA(axis_open_connection.data),
 .m_axis_open_conn_rsp_TVALID(axis_open_status.valid),
 .m_axis_open_conn_rsp_TREADY(axis_open_status.ready),
 .m_axis_open_conn_rsp_TDATA(axis_open_status.data),
@@ -647,7 +633,7 @@ toe_ip toe_inst_b (
 // listen&close port
 .s_axis_listen_port_req_V_TVALID(axis_listen_port.valid),
 .s_axis_listen_port_req_V_TREADY(axis_listen_port.ready),
-.s_axis_listen_port_req_V_TDATA({8'h0, axis_listen_port.data}), // owner 0
+.s_axis_listen_port_req_V_TDATA(axis_listen_port.data),
 .m_axis_listen_port_rsp_V_TVALID(axis_listen_port_status.valid),
 .m_axis_listen_port_rsp_V_TREADY(axis_listen_port_status.ready),
 .m_axis_listen_port_rsp_V_TDATA(axis_listen_port_status.data),
@@ -663,7 +649,7 @@ toe_ip toe_inst_b (
 // open&close connection
 .s_axis_open_conn_req_V_TVALID(axis_open_connection.valid),
 .s_axis_open_conn_req_V_TREADY(axis_open_connection.ready),
-.s_axis_open_conn_req_V_TDATA({8'h0, axis_open_connection.data}), // owner 0
+.s_axis_open_conn_req_V_TDATA(axis_open_connection.data),
 .m_axis_open_conn_rsp_V_TVALID(axis_open_status.valid),
 .m_axis_open_conn_rsp_V_TREADY(axis_open_status.ready),
 .m_axis_open_conn_rsp_V_TDATA(axis_open_status.data),
@@ -806,7 +792,7 @@ assign m_axis_tcp_mem_wr[ddrPortNetworkTx].tlast = axis_txwrite_data.tlast;
 
 // Register slices to avoid combinatorial loops created by HLS due to the new axis INTERFACE (enforced since 19.1)
 
-axis_register_slice_tcp_16 listen_port_slice (
+axis_register_slice_tcp_32 listen_port_slice (
   .aclk(nclk),                    // input wire aclk
   .aresetn(nresetn),              // input wire aresetn
   .s_axis_tvalid(s_tcp_listen_req.valid),  // input wire s_axis_tvalid
@@ -828,7 +814,7 @@ axis_register_slice_tcp_8 port_status_slice (
   .m_axis_tdata(m_tcp_listen_rsp.data)    // output wire [7 : 0] m_axis_tdata
 );
 
-axis_register_slice_tcp_48 open_connection_slice (
+axis_register_slice_tcp_64 open_connection_slice (
   .aclk(nclk),                    // input wire aclk
   .aresetn(nresetn),              // input wire aresetn
   .s_axis_tvalid(s_tcp_open_req.valid),  // input wire s_axis_tvalid
@@ -912,6 +898,18 @@ axis_register_slice_tcp_64 axis_tx_status_slice (
   .m_axis_tvalid(m_tcp_tx_stat.valid),  // output wire m_axis_tvalid
   .m_axis_tready(m_tcp_tx_stat.ready),  // input wire m_axis_tready
   .m_axis_tdata(m_tcp_tx_stat.data)    // output wire [7 : 0] m_axis_tdata
+);
+
+// RX credit {beats, owner}, used by the TOE only with RX_DDR_BYPASS_EN
+axis_register_slice_tcp_16 rx_credit_slice (
+  .aclk(nclk),
+  .aresetn(nresetn),
+  .s_axis_tvalid(s_tcp_rx_credit.valid),
+  .s_axis_tready(s_tcp_rx_credit.ready),
+  .s_axis_tdata(s_tcp_rx_credit.data),
+  .m_axis_tvalid(axis_rx_credit.valid),
+  .m_axis_tready(axis_rx_credit.ready),
+  .m_axis_tdata(axis_rx_credit.data)
 );
 
 endgenerate

@@ -35,27 +35,22 @@ import lynxTypes::*;
  * @brief   TCP clock crossing (network/aclk <-> user/uclk), data path only
  *
  * The TCP management interfaces (listen, open, close) are NOT part of this crossing: they are driven by the MMU
- * (cnfg_slave) and stay in the aclk domain, directly connected to the tcp_arbiter in dynamic_top.
+ * (cnfg_slave) and stay in the aclk domain. RX data comes from tcp_rx with tid = dest; rq_wr/sq_rd/cq_rd use
+ * the generic meta crossings.
  *
  */
 module tcp_ccross_ul (
     // Network
-    metaIntf.s              s_tcp_notify_nclk,
-    metaIntf.m              m_tcp_rd_pkg_nclk,
-    metaIntf.s              s_tcp_rx_meta_nclk,
     metaIntf.m              m_tcp_tx_meta_nclk,
     metaIntf.s              s_tcp_tx_stat_nclk,
     AXI4S.m                m_axis_tcp_tx_nclk, 
-    AXI4S.s                s_axis_tcp_rx_nclk,
+    AXI4SR.s               s_axis_tcp_rx_nclk,
     
     // User        
-    metaIntf.m              m_tcp_notify_aclk,
-    metaIntf.s              s_tcp_rd_pkg_aclk,
-    metaIntf.m              m_tcp_rx_meta_aclk,
     metaIntf.s              s_tcp_tx_meta_aclk,
     metaIntf.m              m_tcp_tx_stat_aclk,
     AXI4S.s                s_axis_tcp_tx_aclk,      
-    AXI4S.m                m_axis_tcp_rx_aclk,
+    AXI4SR.m               m_axis_tcp_rx_aclk,
 
     input  wire             nclk,
     input  wire             nresetn,
@@ -66,48 +61,6 @@ module tcp_ccross_ul (
 // ---------------------------------------------------------------------------------------------------
 // Crossings
 // ---------------------------------------------------------------------------------------------------
-
-    // Notifications
-    axis_clock_converter_tcp_88 inst_tcp_notify (
-        .m_axis_aclk(aclk),
-        .s_axis_aclk(nclk),
-        .s_axis_aresetn(nresetn),
-        .m_axis_aresetn(aresetn),
-        .s_axis_tvalid(s_tcp_notify_nclk.valid),
-        .s_axis_tready(s_tcp_notify_nclk.ready),
-        .s_axis_tdata (s_tcp_notify_nclk.data),
-        .m_axis_tvalid(m_tcp_notify_aclk.valid),
-        .m_axis_tready(m_tcp_notify_aclk.ready),
-        .m_axis_tdata (m_tcp_notify_aclk.data)
-    );
-
-    // Read pkg
-    axis_clock_converter_tcp_40 inst_rd_pkg (
-        .m_axis_aclk(nclk),
-        .s_axis_aclk(aclk),
-        .s_axis_aresetn(aresetn),
-        .m_axis_aresetn(nresetn),
-        .s_axis_tvalid(s_tcp_rd_pkg_aclk.valid),
-        .s_axis_tready(s_tcp_rd_pkg_aclk.ready),
-        .s_axis_tdata (s_tcp_rd_pkg_aclk.data),
-        .m_axis_tvalid(m_tcp_rd_pkg_nclk.valid),
-        .m_axis_tready(m_tcp_rd_pkg_nclk.ready),
-        .m_axis_tdata (m_tcp_rd_pkg_nclk.data)
-    );
-
-    // Read meta + data
-    axis_clock_converter_tcp_16 inst_rx_meta (
-        .m_axis_aclk(aclk),
-        .s_axis_aclk(nclk),
-        .s_axis_aresetn(nresetn),
-        .m_axis_aresetn(aresetn),
-        .s_axis_tvalid(s_tcp_rx_meta_nclk.valid),
-        .s_axis_tready(s_tcp_rx_meta_nclk.ready),
-        .s_axis_tdata (s_tcp_rx_meta_nclk.data),
-        .m_axis_tvalid(m_tcp_rx_meta_aclk.valid),
-        .m_axis_tready(m_tcp_rx_meta_aclk.ready),
-        .m_axis_tdata (m_tcp_rx_meta_aclk.data)
-    );
 
     // Write meta + data + status
     axis_clock_converter_tcp_40 inst_tcp_tx_meta (
@@ -153,7 +106,7 @@ module tcp_ccross_ul (
         .m_axis_tlast (m_axis_tcp_tx_nclk.tlast)
     );
 
-    axis_clock_converter_tcp_512 inst_rx_data (
+    axisr_clock_converter_tcp_512 inst_rx_data (
         .m_axis_aclk(aclk),
         .s_axis_aclk(nclk),
         .s_axis_aresetn(nresetn),
@@ -162,11 +115,13 @@ module tcp_ccross_ul (
         .s_axis_tready(s_axis_tcp_rx_nclk.tready),
         .s_axis_tdata (s_axis_tcp_rx_nclk.tdata),
         .s_axis_tkeep (s_axis_tcp_rx_nclk.tkeep),
+        .s_axis_tid   (s_axis_tcp_rx_nclk.tid),
         .s_axis_tlast (s_axis_tcp_rx_nclk.tlast),
         .m_axis_tvalid(m_axis_tcp_rx_aclk.tvalid),
         .m_axis_tready(m_axis_tcp_rx_aclk.tready),
         .m_axis_tdata (m_axis_tcp_rx_aclk.tdata),
         .m_axis_tkeep (m_axis_tcp_rx_aclk.tkeep),
+        .m_axis_tid   (m_axis_tcp_rx_aclk.tid),
         .m_axis_tlast (m_axis_tcp_rx_aclk.tlast)
     );
 

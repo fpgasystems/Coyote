@@ -1063,6 +1063,7 @@ assign host_req.data.req_1.host         = 1'b1; // RSRVD
 assign host_req.data.req_1.vaddr        = slv_reg[CTRL_REG][CTRL_VADDR_OFFS+:VADDR_BITS];
 assign host_req.data.req_1.len          = slv_reg[CTRL_REG][CTRL_LEN_OFFS+:LEN_BITS];
 assign host_req.data.req_1.offs         = 0;
+assign host_req.data.req_1.sid          = 0;
 assign host_req.data.req_1.rsrvd        = 0;
 
 assign host_req.data.req_2.opcode       = slv_reg[CTRL_REG][WR_OFFS+CTRL_OPCODE_OFFS+:OPCODE_BITS];
@@ -1076,6 +1077,7 @@ assign host_req.data.req_2.host         = 1'b1; // RSRVD
 assign host_req.data.req_2.vaddr        = slv_reg[CTRL_REG][WR_OFFS+CTRL_VADDR_OFFS+:VADDR_BITS]; 
 assign host_req.data.req_2.len          = slv_reg[CTRL_REG][WR_OFFS+CTRL_LEN_OFFS+:LEN_BITS];
 assign host_req.data.req_2.offs         = 0;
+assign host_req.data.req_2.sid          = 0;
 assign host_req.data.req_2.rsrvd        = 0;
 
 assign host_req.valid = local_post || remote_post;

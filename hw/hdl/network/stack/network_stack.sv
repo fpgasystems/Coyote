@@ -90,6 +90,7 @@ module network_stack #(
     metaIntf.m                  m_tcp_rx_meta,
     metaIntf.s                  s_tcp_tx_meta,
     metaIntf.m                  m_tcp_tx_stat,
+    metaIntf.s                  s_tcp_rx_credit,
     
     AXI4S.s                     s_axis_tcp_tx,
     AXI4S.m                     m_axis_tcp_rx,
@@ -945,6 +946,7 @@ tcp_stack tcp_stack_inst(
     .m_tcp_rx_meta(m_tcp_rx_meta),
     .s_tcp_tx_meta(s_tcp_tx_meta),
     .m_tcp_tx_stat(m_tcp_tx_stat),
+    .s_tcp_rx_credit(s_tcp_rx_credit),
     
     .s_axis_tcp_tx(s_axis_tcp_tx),
     .m_axis_tcp_rx(m_axis_tcp_rx),

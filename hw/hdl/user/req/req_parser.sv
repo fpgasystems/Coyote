@@ -153,6 +153,7 @@ always_comb begin: DP
     m_req.data.actv = actv_C;
     m_req.data.host = host_C;
     m_req.data.offs = 0;
+    m_req.data.sid = 0;
     m_req.data.vaddr = pvaddr_C;
     m_req.data.len = plen_C;
     m_req.data.rsrvd = 0;

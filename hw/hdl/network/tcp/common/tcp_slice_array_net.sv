@@ -49,6 +49,7 @@ module tcp_slice_array_net #(
     metaIntf.s              s_tcp_rx_meta_n,
     metaIntf.m              m_tcp_tx_meta_n,
     metaIntf.s              s_tcp_tx_stat_n,
+    metaIntf.m              m_tcp_rx_credit_n,
     AXI4S.m                 m_axis_tcp_tx_n, 
     AXI4S.s                 s_axis_tcp_rx_n,
     
@@ -63,6 +64,7 @@ module tcp_slice_array_net #(
     metaIntf.m              m_tcp_rx_meta_u,
     metaIntf.s              s_tcp_tx_meta_u,
     metaIntf.m              m_tcp_tx_stat_u,
+    metaIntf.s              s_tcp_rx_credit_u,
     AXI4S.s                 s_axis_tcp_tx_u,         
     AXI4S.m                 m_axis_tcp_rx_u,
 
@@ -80,6 +82,7 @@ metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_rd_pkg_s [N_STAGES+1] (.*);
 metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_rx_meta_s [N_STAGES+1] (.*);
 metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_tx_meta_s [N_STAGES+1] (.*);
 metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_tx_stat_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(tcp_rx_credit_t)) tcp_rx_credit_s [N_STAGES+1] (.*);
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_rx_s [N_STAGES+1] (.*);
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_s [N_STAGES+1] (.*);
 
@@ -96,6 +99,7 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_s [N_STAGES+1] (.*);
 `META_ASSIGN(s_tcp_close_req_u, tcp_close_req_s[0])
 `META_ASSIGN(s_tcp_rd_pkg_u, tcp_rd_pkg_s[0])
 `META_ASSIGN(s_tcp_tx_meta_u, tcp_tx_meta_s[0])
+`META_ASSIGN(s_tcp_rx_credit_u, tcp_rx_credit_s[0])
 `AXIS_ASSIGN(s_axis_tcp_tx_u, axis_tcp_tx_s[0])
 
 // Masters
@@ -104,6 +108,7 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_s [N_STAGES+1] (.*);
 `META_ASSIGN(tcp_close_req_s[N_STAGES], m_tcp_close_req_n)
 `META_ASSIGN(tcp_rd_pkg_s[N_STAGES], m_tcp_rd_pkg_n)
 `META_ASSIGN(tcp_tx_meta_s[N_STAGES], m_tcp_tx_meta_n)
+`META_ASSIGN(tcp_rx_credit_s[N_STAGES], m_tcp_rx_credit_n)
 `AXIS_ASSIGN(axis_tcp_tx_s[N_STAGES], m_axis_tcp_tx_n)
 
 `META_ASSIGN(tcp_listen_rsp_s[N_STAGES], m_tcp_listen_rsp_u)
@@ -115,7 +120,7 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_s [N_STAGES+1] (.*);
 
 for(genvar i = 0; i < N_STAGES; i++) begin
 
-    axis_register_slice_tcp_16 inst_slice_listen_req (
+    axis_register_slice_tcp_32 inst_slice_listen_req (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(tcp_listen_req_s[i].valid),
@@ -137,7 +142,7 @@ for(genvar i = 0; i < N_STAGES; i++) begin
         .m_axis_tdata (tcp_listen_rsp_s[i+1].data)
     );
 
-    axis_register_slice_tcp_48 inst_slice_open_req (
+    axis_register_slice_tcp_64 inst_slice_open_req (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(tcp_open_req_s[i].valid),
@@ -223,6 +228,17 @@ for(genvar i = 0; i < N_STAGES; i++) begin
         .m_axis_tvalid(tcp_tx_stat_s[i+1].valid),
         .m_axis_tready(tcp_tx_stat_s[i+1].ready),
         .m_axis_tdata (tcp_tx_stat_s[i+1].data)
+    );
+
+    axis_register_slice_tcp_16 inst_slice_rx_credit (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axis_tvalid(tcp_rx_credit_s[i].valid),
+        .s_axis_tready(tcp_rx_credit_s[i].ready),
+        .s_axis_tdata (tcp_rx_credit_s[i].data),
+        .m_axis_tvalid(tcp_rx_credit_s[i+1].valid),
+        .m_axis_tready(tcp_rx_credit_s[i+1].ready),
+        .m_axis_tdata (tcp_rx_credit_s[i+1].data)
     );
 
     axis_register_slice_tcp_512 inst_slice_tx (

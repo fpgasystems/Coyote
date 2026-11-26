@@ -30,6 +30,7 @@ import lynxTypes::*;
 /**
  * @brief TCP port table
  *
+ * Listen ownership per port; forwards listen requests to the TOE with the vFPGA index as owner.
  */
 
 module tcp_port_table (
@@ -40,10 +41,7 @@ module tcp_port_table (
     metaIntf.m                                     m_listen_req,
 
     metaIntf.s                                     s_listen_rsp,
-    metaIntf.m                                     m_listen_rsp [N_REGIONS],
-
-    input  logic [TCP_IP_PORT_BITS-1:0]            port_addr,   
-    output logic [TCP_PORT_TABLE_DATA_BITS-1:0]    rsid_out     
+    metaIntf.m                                     m_listen_rsp [N_REGIONS]
 );
 
     localparam int PT_ADDR_BITS   = 15;
@@ -70,11 +68,6 @@ module tcp_port_table (
     logic [PT_ADDR_BITS-1:0]  a_addr;
     logic [PT_RAM_BITS-1:0]   a_din, a_dout;
 
-    logic [PT_ADDR_BITS-1:0]  b_addr;
-    logic [PT_RAM_BITS-1:0]   b_dout;
-
-    assign b_addr   = port_addr[PT_ADDR_BITS-1:0];
-    assign rsid_out = b_dout[PT_DATA_BITS-1:0];
 
     typedef enum logic [2:0] {
         ST_IDLE,       
@@ -209,8 +202,9 @@ module tcp_port_table (
             end
 
             ST_MISS_SEND: begin
-                m_listen_req.valid = 1'b1;
-                m_listen_req.data  = req_buf_C;
+                m_listen_req.valid      = 1'b1;
+                m_listen_req.data       = req_buf_C;
+                m_listen_req.data.owner = vfid_C;
 
                 if (m_listen_req.ready && claim_C) begin
                     a_we  = {PT_DATA_BYTES{1'b1}};
@@ -265,9 +259,9 @@ module tcp_port_table (
         .a_data_in  (a_din),
         .a_data_out (a_dout),
 
-        .b_en       (1'b1),
-        .b_addr     (b_addr),
-        .b_data_out (b_dout)
+        .b_en       (1'b0),
+        .b_addr     ('0),
+        .b_data_out ()
     );
 
 endmodule

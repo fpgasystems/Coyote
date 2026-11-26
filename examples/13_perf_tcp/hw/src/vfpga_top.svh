@@ -97,30 +97,20 @@ tcp_perf_client_hls_ip inst_perf_client(
 //                  SERVER LOGIC                      //
 ////////////////////////////////////////////////////////
 
-// Main HLS module implementing the TCP server logic
-tcp_perf_server_hls_ip inst_perf_server(
-    .s_axis_notif_TVALID            (tcp_notify.valid),
-    .s_axis_notif_TREADY            (tcp_notify.ready),
-    .s_axis_notif_TDATA             (tcp_notify.data),
+// For the purpose of the benchmark, each received segment is fully consumed; the data is discarded,
+// as this is a simple performance benchmark (iperf)
+always_comb begin
+    sq_rd.valid     = rq_wr.valid;
+    sq_rd.data      = '0;
+    sq_rd.data.strm = STRM_TCP;
+    sq_rd.data.sid  = rq_wr.data.sid;
+    sq_rd.data.len  = rq_wr.data.len;
+    sq_rd.data.last = 1'b1;
+end
 
-    .m_axis_read_package_TVALID     (tcp_rd_pkg.valid),
-    .m_axis_read_package_TREADY     (tcp_rd_pkg.ready),
-    .m_axis_read_package_TDATA      (tcp_rd_pkg.data),
-
-    .s_axis_rx_meta_TVALID          (tcp_rx_meta.valid),
-    .s_axis_rx_meta_TREADY          (tcp_rx_meta.ready),
-    .s_axis_rx_meta_TDATA           (tcp_rx_meta.data),
-
-    .s_axis_rx_data_TVALID          (axis_tcp_recv.tvalid),
-    .s_axis_rx_data_TREADY          (axis_tcp_recv.tready),
-    .s_axis_rx_data_TDATA           (axis_tcp_recv.tdata),
-    .s_axis_rx_data_TKEEP           (axis_tcp_recv.tkeep),
-    .s_axis_rx_data_TLAST           (axis_tcp_recv.tlast),
-    .s_axis_rx_data_TSTRB           (0),
-
-    .ap_clk                         (aclk),
-    .ap_rst_n                       (aresetn)
-);
+assign rq_wr.ready             = sq_rd.ready;
+assign axis_tcp_recv[0].tready = 1'b1;
+assign cq_rd.ready             = 1'b1;
 
 /////////////////////////////////////////////////////////
 //                TIE OFF UNUSED                      //
@@ -133,9 +123,7 @@ always_comb axis_host_recv[0].tie_off_s();
 always_comb axis_host_send[0].tie_off_m();
 
 // Tie-off unused signals to avoid synthesis problems
-always_comb sq_rd.tie_off_m();
 always_comb sq_wr.tie_off_m();
-always_comb cq_rd.tie_off_s();
 always_comb cq_wr.tie_off_s();
 always_comb notify.tie_off_m();
 
@@ -161,12 +149,12 @@ ila_perf_tcp inst_ila_perf_tcp (
     .probe10 (axis_tcp_send.tready),
     .probe11 (axis_tcp_send.tlast),
     
-    .probe12 (tcp_notify.valid),
-    .probe13 (tcp_notify.ready),
-    .probe14 (tcp_rd_pkg.valid),
-    .probe15 (tcp_rd_pkg.ready),
+    .probe12 (rq_wr.valid),
+    .probe13 (rq_wr.ready),
+    .probe14 (sq_rd.valid),
+    .probe15 (sq_rd.ready),
     
-    .probe16 (axis_tcp_recv.tvalid),
-    .probe17 (axis_tcp_recv.tready),
-    .probe18 (axis_tcp_recv.tlast)
+    .probe16 (axis_tcp_recv[0].tvalid),
+    .probe17 (axis_tcp_recv[0].tready),
+    .probe18 (axis_tcp_recv[0].tlast)
 );
