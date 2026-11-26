@@ -130,6 +130,7 @@ All declared in [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) as cache
 | `N_RDMA_AXI` | 1 | >=1 | RDMA AXI streams/vFPGA | |
 | `EN_TCP` | 0 | 0/1 | TCP/IP stack (`toe_ip`, `hash_table_ip`) | Not Versal |
 | `N_TCP_AXI` | 1 | >=1 | TCP streams/vFPGA | |
+| `TCP_RX_QUEUE_BYTES` | 262080 | multiple of 64, 64..262080 | Per-vFPGA TCP RX queue and initial TOE RX credit; one vFPGA's RX is at most this per RTT ([network.md](../services/network.md#51-tcpip-toe-on-the-generic-interfaces)) | |
 | `EN_SNIFFER`, `SNIFFER_VFPGA_ID` | 0, 0 | 0/1, vFPGA id | Packet sniffer; turns on `EN_NET`. Needs `EN_RDMA` or `EN_TCP` too (example 11 sets `EN_RDMA=1`): the network HLS subdirs are gated on `EN_TCP OR EN_RDMA`, so a sniffer-only build has no `services` target and `make project` fails at `make services` | Not Versal |
 | `EN_XTERM` | 1 | 0/1 | Colored (`tput`) Tcl console output via `color` proc in `base.tcl`; set 0 for plain logs | |
 | `EN_NET_0` / `EN_NET_1` | 1 / 0 | exactly one (both = fatal) | QSFP port (`QSFP` = 0/1) | U55C/U280/U250/U200 |

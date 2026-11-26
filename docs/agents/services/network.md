@@ -203,7 +203,7 @@ For `REMOTE_RDMA_READ` the SW swaps source/destination roles in `invoke`; only t
 
 ### 5.1 TCP/IP (TOE) on the generic interfaces
 
-The TOE ([toe/](../../../hw/services/network/hls/toe/), HLS) is one shared engine; the shell multiplexes it over the vFPGAs so that no vFPGA can block, starve or use another vFPGA's sessions. TOE build options as used by Coyote: `TCP_STACK_RX_DDR_BYPASS_EN=1` (RX data goes through one shared, in-order FIFO, not DDR; the only supported mode, NET-01), `TCP_STACK_NODELAY_EN=1`, window scaling on (shift 2), `TCP_STACK_MSS=4096`, `TCP_STACK_MAX_SESSIONS` (512, at most 1024).
+The TOE ([toe/](../../../hw/services/network/hls/toe/), HLS) is one shared engine; the shell multiplexes it over the vFPGAs so that no vFPGA can block, starve or use another vFPGA's sessions. TOE build options as used by Coyote: `TCP_STACK_RX_DDR_BYPASS_EN=1` (RX data goes through one shared, in-order FIFO, not DDR; the only supported mode, NET-18), `TCP_STACK_NODELAY_EN=1`, window scaling on (shift 2), `TCP_STACK_MSS=4096`, `TCP_STACK_MAX_SESSIONS` (512, at most 1024).
 
 **Connection management** stays in SW: `cThread::listenTcp`/`stopListenTcp`/`openConnTcp`/`closeConnTcp` write `TCP_OPEN_PORT_REG`/`TCP_OPEN_CONN_REG`/`TCP_CLOSE_CONN_REG` in `cnfg_slave`. The vFPGA sees data only (no opened/closed events); a server learns a session's sid from its first `rq_wr`. A listen or open request is written only after the previous one was answered (busy bit in its status register), and a close only after the previous close was accepted (busy bit read from `TCP_CLOSE_CONN_REG`), all under `mgmt_lock` (SW-15); so every answer belongs to its own request.
 
@@ -243,7 +243,7 @@ The TOE ([toe/](../../../hw/services/network/hls/toe/), HLS) is one shared engin
 | uses a sid it does not own | `TCP_ERR_NOT_OWNER`, data dropped | owner check before every meta; owners only for sid < 1024 |
 | issues an `sq_rd` that does not match | `TCP_ERR_BAD_REQ`, no data | checked per vFPGA queue |
 
-Within one vFPGA, its TCP and RDMA requests share the split muxes, so a full TCP path holds that vFPGA's own later RDMA requests, and a NOSPACE head chunk holds its other sessions. Known limits: NET-15 (TOE RX after FIN with data), NET-16, NET-17 (reconfiguring a vFPGA while its chunk is in flight), USR-10 in [known_issues.md](../known_issues.md). After a vFPGA is reconfigured, its sessions, queued RX data and owners remain and pass to the next app.
+Within one vFPGA, its TCP and RDMA requests share the split muxes, so a full TCP path holds that vFPGA's own later RDMA requests, and a NOSPACE head chunk holds its other sessions. Known limits: NET-15 (TOE RX after FIN with data), NET-16, NET-17 (reconfiguring a vFPGA while its chunk is in flight), USR-10 in [known_issues.md](../known_issues.md). Ports, sessions and queued RX data of a killed process or a reconfigured vFPGA stay owned by that vFPGA (NET-19).
 
 ## 6. Clocks, CDC and slicing
 - Three relevant clocks ([shell_ctrl_tmplt.txt](../../../hw/templates/common/shell_ctrl_tmplt.txt), `clk_wiz_0` in [cr_ctrl.tcl](../../../hw/bd/ultrascale_plus/cr_ctrl.tcl): aclk/nclk/uclk are outputs of one MMCM with phase alignment): `rclk` (CMAC `usr_clk`, 322 MHz), `nclk` (`NCLK_F`, default 250 MHz), `aclk` (shell, `ACLK_F`), plus `uclk` for user logic. Details: [shell_top.md](../shell/shell_top.md).

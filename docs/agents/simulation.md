@@ -134,7 +134,7 @@ Output ops: `GET_CSR=0 (u64)`, `HOST_WRITE=1 (vaddr u64, len u64, data)`, `IRQ=2
 | `invoke(LOCAL_OFFLOAD/SYNC)` | Supported only if the shell config has `EN_MEM`; **without `EN_MEM` the generator's unsupported-opcode branch fires `done` and `tb_user` calls `$finish`** (C++ then reports the sim thread stopped). OFFLOAD first sends `MEM_WRITE` of `[addr, addr+len)`; SYNC data returns as HOST_WRITE for that range only. Blocks via polling `checkCompleted` |
 | `checkCompleted/clearCompleted` | Supported for local ops (counters in `memory_simulation`); remote RDMA/TCP -> assert |
 | user interrupts (`uisr`) | Supported: `notify` -> IRQ -> `irq_queue` -> `uisr(value)` on `irq_thread`. `pid` is dropped on the C++ side |
-| RDMA / TCP (`initRDMA`, `invoke(rdmaSg/tcpSg)`, ARP, QP, `connSync`, `closeConn`) | **Unsupported**: `ASSERT("Networking not implemented...")`. The sim `ASSERT` macro is `LOG + assert(false)`, so with `NDEBUG` (e.g. `CMAKE_BUILD_TYPE=Release`, which examples force) it only logs and execution continues (e.g. `initRDMA` returns `nullptr`) |
+| RDMA / TCP (`initRDMA`, `invoke(rdmaSg)`, `listenTcp`/`stopListenTcp`/`openConnTcp`/`closeConnTcp`, ARP, QP, `connSync`, `closeConn`) | **Unsupported**: `ASSERT("Networking not implemented...")`. The sim `ASSERT` macro is `LOG + assert(false)`, so with `NDEBUG` (e.g. `CMAKE_BUILD_TYPE=Release`, which examples force) it only logs and execution continues (e.g. `initRDMA` returns `nullptr`) |
 | `lock/unlock` (scheduling) | Unsupported (assert) |
 | Multiple cThreads / vFPGAs | Not supported: `vfid` ignored, `ctid=0`, one pipe pair & one Vivado per process |
 | `printDebug` | stub |

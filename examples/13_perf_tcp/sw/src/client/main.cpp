@@ -43,14 +43,7 @@
 static volatile std::sig_atomic_t stop_requested = 0;
 static void requestStop(int) { stop_requested = 1; }
 
-// HW register map (AXI-Lite, defined in perf_tcp_axi_ctrl_parser.sv)
-// 0: START_CLIENT  (WR, bit[0]=start; auto-cleared when client FSM leaves idle)
-// 1: N_SESSIONS    (WR, [15:0]  -- number of TCP sessions)
-// 2: PKG_WORD_COUNT(WR, [31:0]  -- payload words per packet; payload = PKG_WORD_COUNT * 64 B)
-// 3: SESSION_ID    (WR, [15:0]  -- write once per session; each write injects one session ID)
-// 4: CLK_FREQ      (WR, [31:0]  -- design clock frequency in Hz)
-// 5: DURATION      (WR, [31:0]  -- benchmark duration in seconds)
-// 6: CLIENT_STATE  (RO, [3:0]   -- current FSM state of the client, 0 = idle)
+// vFPGA registers; the register map is in hw/src/hdl/perf_tcp_axi_ctrl_parser.sv
 enum class PerfRegs : uint32_t {
     START_CLIENT    = 0,
     N_SESSIONS      = 1,

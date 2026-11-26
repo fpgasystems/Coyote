@@ -27,7 +27,7 @@
 /////////////////////////////////////////////////////////
 //          AXI LITE PARSER - MM REGISTERS            //
 ////////////////////////////////////////////////////////
-// Client control signals
+// Register map: see hdl/perf_tcp_axi_ctrl_parser.sv
 logic           start_client;
 logic [15:0]    n_sessions;
 logic [31:0]    pkg_word_count;
@@ -35,8 +35,6 @@ logic [31:0]    clk_freq;
 logic [31:0]    duration;
 logic [3:0]     client_state;
 
-// Session-ID injection: SW writes each openConnTcp() result to reg 3,
-// producing one session ID entry consumed by the client kernel.
 logic           sess_id_valid;
 logic [15:0]    sess_id_data;
 logic           sess_id_ready;
