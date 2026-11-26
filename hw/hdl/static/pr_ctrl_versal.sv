@@ -58,6 +58,8 @@ localparam integer PARSE_SIZE = 4096;
 typedef enum logic[2:0]  {ST_IDLE, ST_WAIT_NEXT, ST_PARSE, ST_SEND, ST_WAIT_EOS} state_t;
 logic [2:0] state_C, state_N;
 
+logic eos_pmc_s; // eos_pmc synchronised to aclk
+
 logic last_C, last_N;
 
 logic [LEN_BITS-1:0] len_C, len_N;
@@ -65,6 +67,19 @@ logic [LEN_BITS-1:0] len_prev_C, len_prev_N;
 
 logic [PADDR_BITS-1:0] paddr_rd_C, paddr_rd_N;
 logic [PADDR_BITS-1:0] paddr_rd_prev_C, paddr_rd_prev_N;
+
+// eos_pmc is asynchronous to aclk
+xpm_cdc_single #(
+    .DEST_SYNC_FF(4),
+    .INIT_SYNC_FF(0),
+    .SIM_ASSERT_CHK(0),
+    .SRC_INPUT_REG(0)
+) inst_eos_pmc_sync (
+    .src_clk(1'b0),
+    .src_in(eos_pmc),
+    .dest_clk(aclk),
+    .dest_out(eos_pmc_s)
+);
 
 // REG
 always_ff @(posedge aclk) begin: REG
@@ -115,7 +130,7 @@ always_comb begin: NSL
         end
 
         ST_WAIT_EOS: begin
-            state_N = eos_pmc ? ST_IDLE : ST_WAIT_EOS;
+            state_N = eos_pmc_s ? ST_IDLE : ST_WAIT_EOS;
         end
 	endcase
 end
@@ -200,7 +215,7 @@ always_comb begin: DP
         end
 
         ST_WAIT_EOS: begin
-            eos_ctrl = eos_pmc;
+            eos_ctrl = eos_pmc_s;
         end
         
     endcase

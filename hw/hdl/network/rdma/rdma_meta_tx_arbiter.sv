@@ -232,6 +232,8 @@ assign m_axis_rd_tready = m_axis_rd.tready;
 always_ff @(posedge aclk) begin: PROC_REG
     if (aresetn == 1'b0) begin
         state_C <= ST_IDLE;
+        cnt_C <= 'X;
+        vfid_C <= 'X;
     end
     else begin
         state_C <= state_N;

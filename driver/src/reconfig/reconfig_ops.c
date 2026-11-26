@@ -140,7 +140,12 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
 
                 // Reset end-of-start up time (active-low)
                 bus_data->stat_cnfg->reconfig_eost_reset = 0x0;
+                wmb();
+                usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+
                 bus_data->stat_cnfg->reconfig_eost_reset = 0x1;
+                wmb();
+                usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
 
                 // Couple and re-init the shell, unlock mutex
                 dbg_info("shell reconfiguration complete, coupling the design and unlocking mutex\n");
@@ -214,6 +219,15 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                     return -ETIMEDOUT;
                 }
                 atomic_set(&device->wait_rcnfg, FLAG_CLR);
+
+                // Reset the vFPGA, still decoupled (bit 32 + vFPGA ID)
+                bus_data->shell_cnfg->reconfig_dcpl_app_set = (1ULL << (32 + (uint32_t) tmp[4]));
+                wmb();
+                usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+
+                bus_data->shell_cnfg->reconfig_dcpl_app_clr = (1ULL << (32 + (uint32_t) tmp[4]));
+                wmb();
+                usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
 
                 // Couple and unlock mutex
                 dbg_info("app reconfiguration complete, coupling the design and unlocking mutex\n");

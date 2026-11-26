@@ -144,7 +144,7 @@ logic stall_pipeline;
 logic switch_output; 
 
 // Bitmask for masking away the the unrequired fields of the incoming data 
-DataWord bitmask; 
+localparam DataWord bitmask = {160'b0, 352'h0000000000000000000000ff00000000ffff0000000000000000000000000000ffff00ff000000000000ff00}; 
 
 // Signal for assigning the ready signal at output 
 logic halffull_signal; 
@@ -196,28 +196,28 @@ assign crc32_in_flight_comb = crc32_in_flight || ((stage_masking_keep != 64'hfff
 
 always_ff @(posedge nclk) begin
 
-    // Reset of all stage signals 
+    // Reset of all stage signals: control (valid, last, flags, counters, masking keep) to constants, datapath to 'X
     if(!nresetn) begin 
         // Reset of the masking stage 
         stage_masking_valid <= 1'b0; 
-        stage_masking_data <= 512'b0;
-        stage_masking_masked_data <= 512'b0; 
+        stage_masking_data <= 'X;
+        stage_masking_masked_data <= 'X;
         stage_masking_keep <= 64'b0; 
         stage_masking_last <= 1'b0; 
         stage_crc_follow_up_word <= 1'b0; 
-        stage_masking_crc_seed <= 32'b0; 
+        stage_masking_crc_seed <= 'X;
 
         // Reset of the CRC32-pipeline stages in parallel 
         for(integer pipeline_stage = 0; pipeline_stage < 16; pipeline_stage++) begin
             stage_crc32_valid[pipeline_stage] <= 1'b0; 
-            stage_crc32_data_bypass[pipeline_stage] <= 512'b0; 
-            stage_crc32_masked_data[pipeline_stage] <= 512'b0;
-            stage_crc32_crc[pipeline_stage] <= 32'b0;
-            stage_crc32_keep[pipeline_stage] <= 64'b0;
+            stage_crc32_data_bypass[pipeline_stage] <= 'X;
+            stage_crc32_masked_data[pipeline_stage] <= 'X;
+            stage_crc32_crc[pipeline_stage] <= 'X;
+            stage_crc32_keep[pipeline_stage] <= 'X;
             stage_crc32_last[pipeline_stage] <= 1'b0; 
             stage_crc32_valid_stages[pipeline_stage] <= 32'b0;
-            crc32_data_probe[pipeline_stage] <= 32'b0; 
-            crc32_seed_probe[pipeline_stage] <= 32'b0;  
+            crc32_data_probe[pipeline_stage] <= 'X;
+            crc32_seed_probe[pipeline_stage] <= 'X;
         end
 
         stage_crc32_counter_word <= 4'b0; 
@@ -225,39 +225,39 @@ always_ff @(posedge nclk) begin
 
         // Reset of the CRC512-pipeline stage
         stage_crc512_valid <= 1'b0; 
-        stage_crc512_data_bypass <= 512'b0;
-        stage_crc512_masked_data <= 512'b0; 
-        stage_crc512_crc <= 32'b0;
-        stage_crc512_keep <= 64'b0; 
+        stage_crc512_data_bypass <= 'X;
+        stage_crc512_masked_data <= 'X;
+        stage_crc512_crc <= 'X;
+        stage_crc512_keep <= 'X;
         stage_crc512_last <= 1'b0; 
 
         // Reset of the CRC320-pipeline stage 
         stage_crc320_valid <= 1'b0; 
-        stage_crc320_data_bypass <= 512'b0; 
-        stage_crc320_masked_data <= 512'b0; 
-        stage_crc320_crc <= 32'b0;
-        stage_crc320_keep <= 64'b0; 
+        stage_crc320_data_bypass <= 'X;
+        stage_crc320_masked_data <= 'X;
+        stage_crc320_crc <= 'X;
+        stage_crc320_keep <= 'X;
         stage_crc320_last <= 1'b0; 
 
         // Reset of the join pipeline stage 
         stage_join_valid <= 1'b0; 
-        stage_join_data <= 512'b0; 
-        stage_join_crc <= 32'b0; 
-        stage_join_keep <= 64'b0; 
+        stage_join_data <= 'X;
+        stage_join_crc <= 'X;
+        stage_join_keep <= 'X;
         stage_join_last <= 1'b0; 
 
         // Reset of the reinsertion pipeline stage 
         stage_reinsertion_valid <= 1'b0; 
-        stage_reinsertion_data <= 512'b0; 
-        stage_reinsertion_crc <= 32'b0; 
-        stage_reinsertion_keep <= 64'b0; 
+        stage_reinsertion_data <= 'X;
+        stage_reinsertion_crc <= 'X;
+        stage_reinsertion_keep <= 'X;
         stage_reinsertion_last <= 1'b0;  
 
         // Reset of the Add-Word-Stage 
         stage_add_word_valid <= 1'b0; 
-        stage_add_word_data <= 512'b0; 
-        stage_add_word_crc <= 32'b0; 
-        stage_add_word_keep <= 64'b0; 
+        stage_add_word_data <= 'X;
+        stage_add_word_crc <= 'X;
+        stage_add_word_keep <= 'X;
         stage_add_word_last <= 1'b0; 
 
         // Reset of the register for stalling the pipeline 
@@ -266,10 +266,6 @@ always_ff @(posedge nclk) begin
 
         // Reset of the register for switching the output 
         switch_output <= 1'b0; 
-
-        // Set-Up of the bitmask 
-        bitmask[351:0] <= 352'h0000000000000000000000ff00000000ffff0000000000000000000000000000ffff00ff000000000000ff00; 
-        bitmask[511:352] <= 160'b0; 
 
         // Reset the test probe 
         crc32_test_probe <= 1'b0; 
