@@ -28,6 +28,7 @@ Scope limits (verified in code): single vFPGA (config 0, region 0), no network (
 | [sim/unit_test/](../../sim/unit_test/) + [README.md](../../sim/unit_test/README.md) | Python framework (`FPGATestCase`, `FPGAPerformanceTestCase`, `SimulationIOWriter`, `VivadoRunner`) |
 | [scripts/unit_test/__init__.in.py](../../scripts/unit_test/__init__.in.py) | Template -> `<build>/coyote_test/__init__.py`; injects CMake values into `constants` |
 | [scripts/cr_prjcts/cr_sim.tcl.in](../../scripts/cr_prjcts/cr_sim.tcl.in) | Creates the xsim Vivado project (`<build>/sim/<proj>.xpr`) |
+| [sim/vl/](../../sim/vl/) | Verilator flow without Vivado: `configure.sh`, `build.sh`, `install_verilator.sh`, `verilator.env` (the pin), `models/` (Verilog models of Xilinx IP). See "Mode C" |
 | [cmake/FindCoyoteHW.cmake](../../cmake/FindCoyoteHW.cmake) | `sim` target (`add_custom_target(sim ...)`, `sim_dpi_c` dep), cache vars `UNIT_TEST_DIR`, `SIM_DPI_LIB_NAME`, `SIM_CLOCK_PERIOD` |
 | [hw/templates/common/user_logic_tmplt.txt](../../hw/templates/common/user_logic_tmplt.txt), [lynx_pkg_tmplt.txt](../../hw/templates/common/lynx_pkg_tmplt.txt) | Rendered into `<build>/sim/user_logic_c0_0.sv` / `lynx_pkg.sv` (DUT wrapper, `CLK_PERIOD`, `BUILD_DIR`, `N_*_AXI`, `EN_*`) |
 
@@ -172,6 +173,20 @@ cd <hw-project>/unit-tests && python -m unittest    # or pytest / IDE test explo
 - Tests run **one at a time**; a singleton `VivadoRunner` keeps one Vivado alive across tests (restarted if the content of `vfpga_top.svh` changes between tests) and skips recompilation if nothing changed (`<build>/sim/.last_change_time`, pickled `CompilationInfo`: latest mtime of `sim/hw`, vfpga top, source folders; vfpga_top path; defines).
 - Set `dump_vcd = False` in the test case to skip the VCD dump. Outputs in the unit-test dir: `sim_dump.vcd`, `sim.out` (if `write_simulation_output_to_file()`), `diff/` (actual vs expected per stream, as int32/int64/float views).
 - `vfpga_top.svh` is swapped for `<build>/sim/vfpga_top.svh` (copy of your top, or `alternative_vfpga_top_file` relative to the unit-test dir) via `remove_files`/`add_files` in `sim_1`.
+
+### Mode C: Verilator, without Vivado
+```bash
+<coyote>/sim/vl/configure.sh <app>/hw <build> -DFDEV_NAME=u55c   # replaces `make sim`
+<coyote>/sim/vl/build.sh <build> <build>/vl_cpp                    # -> <build>/vl_cpp/coyote_vl
+COYOTE_SIM_BIN=<build>/vl_cpp/coyote_vl COYOTE_SIM_DIR=<build> ./test     # Mode A with the Verilator binary
+COYOTE_SIM_VERILATOR=1 PYTHONPATH=<build> python -m unittest              # Mode B with the Verilator binary
+```
+- `configure.sh` runs CMake with `-DSKIP_XILINX=1` ([FindCoyoteHW.cmake](../../cmake/FindCoyoteHW.cmake): a missing Vivado and Vitis HLS is accepted, `gen_targets` skips the network stack folder), renders `lynx_pkg.sv` and `user_logic_c0_0.sv` with `write_hdl.py 3 0 0`, and writes `<build>/files.f` and `<build>/incs.f`. Only config 0 region 0. SpinalHDL kernels work (`comp_spinal.tcl` with `tclsh`, needs `sbt`); HLS kernels do not.
+- `build.sh` needs the Verilator of [verilator.env](../../sim/vl/verilator.env) or newer in `PATH` (`install_verilator.sh <prefix>` builds it). It compiles `tb_user` and [file_io.c](../../sim/hw/dpi/file_io.c) into one binary, so there is no DPI library. Env: `VL_DEFINES` (default `-DEN_RANDOMIZATION -DEN_INTERACTIVE`), `VL_MODELS`, `VL_FLAGS`, `JOBS`.
+- Each Xilinx IP that the vFPGA instantiates needs a Verilog model in [sim/vl/models/](../../sim/vl/models/) or in a `VL_MODELS` folder. No VHDL.
+- C++: `COYOTE_SIM_BIN` makes the sim `cThread` ctor start that binary through `BinaryRunner` in place of `VivadoRunner`; output in `<build>/sim/coyote_vl.log`, no VCD by default.
+- Python: `COYOTE_SIM_VERILATOR=1` selects `VerilatorRunner` in [process_runner.py](../../sim/unit_test/process_runner.py). It calls `build.sh` into `<build>/vl` (or `<build>/vl_trace` for a dump) and passes the simulation time as the `+COYOTE_SIM_MAX_PS` plusarg of `tb_user.sv`.
+- CI: [run_simulation_verilator.yaml](../../.github/workflows/run_simulation_verilator.yaml) runs the host programs of examples 01, 04, 07 and 12 on a GitHub-hosted runner.
 
 ## How to write a test
 
