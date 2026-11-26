@@ -304,7 +304,7 @@ Runtime IP/MAC must differ per node and the peer must be on the same /24 (subnet
 | 36 | 9 | `NET_ARP_REG` | W: `[31:0]` IP to look up (byte-reversed into the request); R: `[0]` request ready |
 | 40,41,42 | 10 | `RDMA_CTX_REG_0..2` | `0`: `[23:0]` qpn, `[63:32]` rkey; `1`: `[23:0]` local PSN, `[47:24]` remote PSN; `2`: `[47:0]` remote vaddr (**write triggers post**; R `[0]` ready) |
 | 44,45,46 | 11 | `RDMA_CONN_REG_0..2` | `0`: `[15:0]` local QPN, `[39:16]` remote QPN, `[55:40]` port; `1`,`2`: remote GID 128 b (**write of 2 triggers post**) |
-| 48/52/56/60 | 12-15 | `TCP_OPEN_PORT/STAT`, `TCP_OPEN_CONN/STAT` | TCP listen/open (`cThread::listenTcp`, `stopListenTcp`, `openConnTcp`) |
+| 48/52/56/60/61 | 12-16 | `TCP_OPEN_PORT/STAT`, `TCP_OPEN_CONN/STAT`, `TCP_CLOSE_CONN` | TCP listen/open/close (`cThread::listenTcp`, `stopListenTcp`, `openConnTcp`, `closeConnTcp`). STAT: `[0]` done, `[8:1]` success, `TCP_OPEN_CONN_STAT` `[24:9]` sid; busy (request outstanding, writes ignored) `[9]` / `[25]`. Reading `TCP_CLOSE_CONN` gives `[0]` busy |
 | 64+ctid | 64+ctid | `STAT_DMA_REG` | completion counters per ctid; RDMA RD/WR counters in AVX word fields 2/3 (legacy: `STAT_RDMA_REG` 128+ctid) |
 | 0,1,2,3 | 0 | `CTRL_REG`, `VADDR_RD`, `CTRL_REG_2`, `VADDR_WR` | Command post; bit 21 (`CTRL_START` in SW = `CTRL_ACTV_OFFS` in RTL) triggers; `strm` field selects local vs remote (`is_strm_local`) |
 

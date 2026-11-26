@@ -209,7 +209,7 @@ Same layout for the two on purpose: AVX reg `n` at byte `32n` overlays non-AVX r
 | 36 -> 0x120 | 9 -> 0x120 | `NET_ARP_REG` | W/R | [31:0] IP (byte-swapped) -> `m_arp_lookup_request`; R[0] = ready |
 | 40..42 -> 0x140..0x150 | 10 -> 0x140 | `RDMA_CTX_REG_0..2` / `RDMA_CTX_REG` | W | QP context: qpn[23:0], rkey [63:32]; lpsn/rpsn; vaddr. Write of last word pulses `m_rdma_qp_interface.valid` |
 | 44..46 -> 0x160..0x170 | 11 -> 0x160 | `RDMA_CONN_REG_0..2` / `RDMA_CONN_REG` | W | local qpn [15:0], remote qpn [39:16], udp port [55:40], remote IP (128b) |
-| 48, 52, 56, 60 -> 0x180, 0x1A0, 0x1C0, 0x1E0 | 12..15 | `TCP_OPEN_PORT[_STAT]`, `TCP_OPEN_CONN[_STAT]` | RW | listen / connect commands + status (EN_TCP) |
+| 48, 52, 56, 60, 61 -> 0x180, 0x1A0, 0x1C0, 0x1E0, 0x1E8 | 12..16 | `TCP_OPEN_PORT[_STAT]`, `TCP_OPEN_CONN[_STAT]`, `TCP_CLOSE_CONN` | RW | listen / connect / close commands (EN_TCP). STAT: [0] done, [8:1] success, OPEN_CONN [24:9] sid; busy (request outstanding, writes ignored) [9] / [25]; reading `TCP_CLOSE_CONN` gives [0] busy |
 | 64..127 -> 0x200 + pid*8 | 64.. -> 0x800 + pid*32 | `STAT_DMA_REG` (BRAM read mux) | R | per-**pid** completion counters (`ram_tp_nc` x2): non-AVX [31:0] local-read done, [63:32] local-write done; AVX 32-bit lanes {rd, wr, rdma-rd, rdma-wr}. `CLR_STAT` in ctrl zeroes one entry |
 | 128..191 -> 0x400 + pid*8 | (lane 2,3 of the above) | RDMA completion counters (non-AVX only separate range) | R | [31:0] rdma-read-resp, [63:32] rdma-write acks |
 

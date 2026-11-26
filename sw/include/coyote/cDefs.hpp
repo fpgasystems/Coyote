@@ -236,6 +236,12 @@ enum class CnfgLegRegs : uint32_t {
 
 #define TCP_STOP_LISTEN_BIT                 (0x8000)
 
+// TCP status registers: [0] done, [8:1] success, TCP_OPEN_CONN_STAT [24:9] session ID; busy = request outstanding
+#define TCP_PORT_STAT_BUSY                  (1ULL << 9)
+#define TCP_CONN_STAT_BUSY                  (1ULL << 25)
+#define TCP_CONN_STAT_SID_OFFS              (9)
+#define TCP_CLOSE_BUSY                      (1ULL << 0)
+
 // Numbers etc.
 #define NaN std::numeric_limits<double>::quiet_NaN();
 

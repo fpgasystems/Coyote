@@ -342,13 +342,13 @@ localparam integer RDMA_CONN_REG_2                          = 46;
 // TCP
 // 48 (W) : TCP listen port request; [15:0] = ip_port
 localparam integer TCP_OPEN_PORT_REG                        = 48;
-// 52 (R) : TCP listen response; [0] = done, [8:1] = open_port_success
+// 52 (R) : TCP listen response; [0] = done, [8:1] = open_port_success, [9] = busy (request outstanding)
 localparam integer TCP_OPEN_PORT_STAT_REG                   = 52;
 // 56 (W) : TCP open connection request; [47:0] = {ip_port[15:0], ip_address[31:0]}
 localparam integer TCP_OPEN_CONN_REG                        = 56;
-// 60 (R) : TCP open connection response; [0] = done, [8:1] = success, [24:9] = sid
+// 60 (R) : TCP open connection response; [0] = done, [8:1] = success, [24:9] = sid, [25] = busy (request outstanding)
 localparam integer TCP_OPEN_CONN_STAT_REG                   = 60;
-// 61 (W) : TCP close connection request; [15:0] = session_id
+// 61 (W) : TCP close connection request; [15:0] = session_id; (R) [0] = busy (previous close not yet accepted)
 localparam integer TCP_CLOSE_CONN_REG                       = 61;
 
 // 64 (RO) : Status DMA completion
@@ -459,11 +459,13 @@ always_ff @(posedge aclk) begin
         if (s_tcp_listen_rsp.valid) begin
             slv_reg[TCP_OPEN_PORT_STAT_REG][8:1] <= s_tcp_listen_rsp.data;
             slv_reg[TCP_OPEN_PORT_STAT_REG][0]   <= 1'b1;
+            slv_reg[TCP_OPEN_PORT_STAT_REG][9]   <= 1'b0;
         end
         if (s_tcp_open_rsp.valid) begin
             slv_reg[TCP_OPEN_CONN_STAT_REG][8:1]  <= s_tcp_open_rsp.data.success;
             slv_reg[TCP_OPEN_CONN_STAT_REG][24:9]  <= s_tcp_open_rsp.data.sid;
             slv_reg[TCP_OPEN_CONN_STAT_REG][0]     <= 1'b1;
+            slv_reg[TCP_OPEN_CONN_STAT_REG][25]    <= 1'b0;
         end
 `endif
 
@@ -752,9 +754,9 @@ always_ff @(posedge aclk) begin
 
 `ifdef EN_TCP
                 TCP_OPEN_PORT_REG: begin // listen port request
-                    // Ignore the write while the previous request is still pending (valid && !ready), so that
-                    // the request data (driven from slv_reg) is stable for as long as valid is asserted.
-                    if(!(m_tcp_listen_req.valid && !m_tcp_listen_req.ready)) begin
+                    // Ignore the write while the previous request is outstanding (busy until its response), so
+                    // that each response belongs to the last accepted request.
+                    if(!slv_reg[TCP_OPEN_PORT_STAT_REG][9]) begin
                         for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
                             if(s_axi_ctrl.wstrb[i]) begin
                                 slv_reg[TCP_OPEN_PORT_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
@@ -762,12 +764,13 @@ always_ff @(posedge aclk) begin
                         end
                         m_tcp_listen_req.valid <= 1'b1;
                         slv_reg[TCP_OPEN_PORT_STAT_REG] <= '0;
+                        slv_reg[TCP_OPEN_PORT_STAT_REG][9] <= 1'b1;
                     end
                 end
                 TCP_OPEN_CONN_REG: begin // open connection request
-                    // Ignore the write while the previous request is still pending (valid && !ready), so that
-                    // the request data (driven from slv_reg) is stable for as long as valid is asserted.
-                    if(!(m_tcp_open_req.valid && !m_tcp_open_req.ready)) begin
+                    // Ignore the write while the previous request is outstanding (busy until its response), so
+                    // that each response belongs to the last accepted request.
+                    if(!slv_reg[TCP_OPEN_CONN_STAT_REG][25]) begin
                         for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
                             if(s_axi_ctrl.wstrb[i]) begin
                                 slv_reg[TCP_OPEN_CONN_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
@@ -775,6 +778,7 @@ always_ff @(posedge aclk) begin
                         end
                         m_tcp_open_req.valid <= 1'b1;
                         slv_reg[TCP_OPEN_CONN_STAT_REG] <= '0;
+                        slv_reg[TCP_OPEN_CONN_STAT_REG][25] <= 1'b1;
                     end
                 end
                 TCP_CLOSE_CONN_REG: begin // close connection request
@@ -912,9 +916,11 @@ always_ff @(posedge aclk) begin
 
 `ifdef EN_TCP
         TCP_OPEN_PORT_STAT_REG:
-            axi_rdata[8:0] <= slv_reg[TCP_OPEN_PORT_STAT_REG][8:0];
+            axi_rdata[9:0] <= slv_reg[TCP_OPEN_PORT_STAT_REG][9:0];
         TCP_OPEN_CONN_STAT_REG:
-            axi_rdata[24:0] <= slv_reg[TCP_OPEN_CONN_STAT_REG][24:0];
+            axi_rdata[25:0] <= slv_reg[TCP_OPEN_CONN_STAT_REG][25:0];
+        TCP_CLOSE_CONN_REG:
+            axi_rdata[0] <= m_tcp_close_req.valid;
 `endif
 
         [STAT_DMA_REG:STAT_DMA_REG+(2**PID_BITS)-1]: begin
