@@ -152,6 +152,7 @@ Status: `confirmed` = the defect was seen in the current code (brackets: what is
 | SW-12 | low | [cService.hpp](../../sw/include/coyote/cService.hpp), [cSched.hpp](../../sw/include/coyote/cSched.hpp) (`getInstance`) | Singletons keyed `"<device>-<vfid>"`; `cService` takes a `name` but ignores it (`cSched` has none). | Name ignored. | confirmed |
 | SW-13 | low | [cDefs.hpp](../../sw/include/coyote/cDefs.hpp) vs [coyote_defs.h](../../driver/include/coyote_defs.h) | SW `IOCTL_NET_STATS` vs driver `IOCTL_SHELL_NET_STATS`; no SW code issues `SET_IP/MAC`, `GET_MAC`, `IOCTL_SHELL_HDMA_STATS`, `NET_STATS`. | Naming / API gap. | confirmed |
 | SW-14 | low | [cOps.hpp](../../sw/include/coyote/cOps.hpp) `CoyoteAlloc` | `#ifdef EN_CUDA CUdeviceptr cu_dev_ptr; #endif` data member, stored in `cThread::mapped_pages`; violates the layout-independence rule (commit 97b26119). | ABI mismatch between lib and apps when `EN_CUDA` differs. | confirmed |
+| SW-15 | med | [cThread.cpp](../../sw/src/cThread.cpp) (`lockMgmt`), [cThread.hpp](../../sw/include/coyote/cThread.hpp) (`mgmt_lock`) | `mgmt_lock` (TCP listen/open/close, RDMA QP context) is a boost `named_mutex` in `/dev/shm`, held while a request is outstanding (up to `TCP_MGMT_TIMEOUT_MS`); it is not released when the holding process is killed. | Later connection setup on that vFPGA fails after `TCP_MGMT_TIMEOUT_MS` with an error naming the mutex until it is removed by hand. A lock that the kernel releases on exit (like `flock`) would avoid this. | confirmed (by reading) |
 
 ## Simulation
 

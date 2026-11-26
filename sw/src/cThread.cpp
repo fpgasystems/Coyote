@@ -26,6 +26,8 @@
 
 #include <coyote/cThread.hpp>
 
+#include <boost/date_time/posix_time/posix_time_types.hpp>
+
 #include <chrono>
 #include <string>
 #include <random>
@@ -1127,7 +1129,7 @@ void cThread::writeQpContext(uint32_t port) {
 
     uint64_t offs[3];
     if (fcnfg.en_rdma) {
-        boost::interprocess::scoped_lock<boost::interprocess::named_mutex> guard(mgmt_lock);
+        auto guard = lockMgmt();
 
         // Derive register values from QP number, rkey, PSN and virtual address 
         offs[0] = ((static_cast<uint64_t>(qpair->local.qpn) & 0xffffff) << QP_CONTEXT_QPN_OFFS) |
@@ -1440,7 +1442,17 @@ void cThread::stopListenTcp(uint16_t port, uint32_t timeout_ms) {
         throw std::runtime_error("ERROR: cThread::stopListenTcp() port not listened on by this vFPGA");
 }
 
-bool cThread::pollTcpStat(CnfgLegRegs reg_leg, CnfgAvxRegs reg_avx, uint32_t timeout_ms, uint64_t &stat) {
+boost::interprocess::scoped_lock<boost::interprocess::named_mutex> cThread::lockMgmt() {
+    auto deadline = boost::posix_time::microsec_clock::universal_time() + boost::posix_time::milliseconds(TCP_MGMT_TIMEOUT_MS);
+    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> guard(mgmt_lock, deadline);
+    if (!guard.owns())
+        throw std::runtime_error("ERROR: cThread: connection management lock of vFPGA " + std::to_string(vfid) + " held for more than " +
+                                 std::to_string(TCP_MGMT_TIMEOUT_MS) + " ms; if no other process uses this vFPGA, it was left by a " +
+                                 "killed process: remove /dev/shm/*_vfpa_" + std::to_string(vfid) + "_mgmt");
+    return guard;
+}
+
+bool cThread::pollTcpStat(CnfgLegRegs reg_leg, [[maybe_unused]] CnfgAvxRegs reg_avx, uint64_t busy, uint32_t timeout_ms, uint64_t &stat) {
     auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
     do {
 #ifdef EN_AVX
@@ -1453,33 +1465,37 @@ bool cThread::pollTcpStat(CnfgLegRegs reg_leg, CnfgAvxRegs reg_avx, uint32_t tim
 #ifdef EN_AVX
         }
 #endif
-        if (stat & 0x1) return true;
+        if (!(stat & busy)) return true;
     } while (std::chrono::steady_clock::now() < deadline);
     return false;
 }
 
-int cThread::tcpPortReq(uint16_t req, uint32_t timeout_ms) {
-    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> guard(mgmt_lock);
-
+void cThread::writeTcpReg(CnfgLegRegs reg_leg, [[maybe_unused]] CnfgAvxRegs reg_avx, uint64_t val) {
 #ifdef EN_AVX
     if (fcnfg.en_avx) {
-        avxRegs()[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_PORT_REG)] =
-            _mm256_set_epi64x(0, 0, 0, static_cast<uint64_t>(req));
-    } else {
-#endif
-        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_OPEN_PORT_REG)] = static_cast<uint64_t>(req);
-#ifdef EN_AVX
+        avxRegs()[static_cast<uint32_t>(reg_avx)] = _mm256_set_epi64x(0, 0, 0, val);
+        return;
     }
 #endif
+    cnfg_reg[static_cast<uint32_t>(reg_leg)] = val;
+}
 
-    // Poll done bit [0]; success field is [8:1]
+// A listen or open request is written only when no request is outstanding (busy clear), so the next answer is its own
+int cThread::tcpPortReq(uint16_t req, uint32_t timeout_ms) {
+    auto guard = lockMgmt();
+
     uint64_t stat = 0;
-    if (!pollTcpStat(CnfgLegRegs::TCP_OPEN_PORT_STAT_REG, CnfgAvxRegs::TCP_OPEN_PORT_STAT_REG, timeout_ms, stat)) {
+    if (!pollTcpStat(CnfgLegRegs::TCP_OPEN_PORT_STAT_REG, CnfgAvxRegs::TCP_OPEN_PORT_STAT_REG, TCP_PORT_STAT_BUSY, timeout_ms, stat)) {
+        std::cerr << "ERROR: cThread: an earlier listen request is still outstanding after " << timeout_ms << " ms" << std::endl;
+        return -1;
+    }
+    writeTcpReg(CnfgLegRegs::TCP_OPEN_PORT_REG, CnfgAvxRegs::TCP_OPEN_PORT_REG, req);
+
+    if (!pollTcpStat(CnfgLegRegs::TCP_OPEN_PORT_STAT_REG, CnfgAvxRegs::TCP_OPEN_PORT_STAT_REG, TCP_PORT_STAT_BUSY, timeout_ms, stat) || !(stat & 0x1)) {
         std::cerr << "ERROR: cThread: no answer from the TCP stack to listen request 0x" << std::hex << req << std::dec
                   << " within " << timeout_ms << " ms" << std::endl;
         return -1;
     }
-
     return (stat >> 1) & 0x1;
 }
 
@@ -1489,25 +1505,24 @@ int32_t cThread::openConnTcp(uint32_t ip_addr, uint16_t port, uint32_t timeout_m
     if (!fcnfg.en_tcp)
         throw std::runtime_error("ERROR: cThread::openConnTcp() called but shell not synthesised with TCP support");
 
-    // Register layout: [47:0] = {ip_port[15:0], ip_address[31:0]}
-    uint64_t conn_data = (static_cast<uint64_t>(port) << 32) | static_cast<uint64_t>(ip_addr);
+    auto guard = lockMgmt();
 
-    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> guard(mgmt_lock);
-
-#ifdef EN_AVX
-    if (fcnfg.en_avx) {
-        avxRegs()[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_CONN_REG)] =
-            _mm256_set_epi64x(0, 0, 0, conn_data);
-    } else {
-#endif
-        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_OPEN_CONN_REG)] = conn_data;
-#ifdef EN_AVX
-    }
-#endif
-
-    // Poll done bit [0]; success [8:1]; session_id [24:9]
+    // An open of an earlier call that timed out may still be outstanding: wait for its answer and close its session
     uint64_t stat = 0;
-    if (!pollTcpStat(CnfgLegRegs::TCP_OPEN_CONN_STAT_REG, CnfgAvxRegs::TCP_OPEN_CONN_STAT_REG, timeout_ms, stat)) {
+    pollTcpStat(CnfgLegRegs::TCP_OPEN_CONN_STAT_REG, CnfgAvxRegs::TCP_OPEN_CONN_STAT_REG, TCP_CONN_STAT_BUSY, 0, stat);
+    if (stat & TCP_CONN_STAT_BUSY) {
+        if (!pollTcpStat(CnfgLegRegs::TCP_OPEN_CONN_STAT_REG, CnfgAvxRegs::TCP_OPEN_CONN_STAT_REG, TCP_CONN_STAT_BUSY, timeout_ms, stat)) {
+            std::cerr << "ERROR: cThread::openConnTcp() an earlier open is still outstanding after " << timeout_ms << " ms" << std::endl;
+            return -1;
+        }
+        if ((stat >> 1) & 0x1)
+            closeTcpSession(static_cast<uint16_t>((stat >> TCP_CONN_STAT_SID_OFFS) & 0xFFFF));
+    }
+
+    // Register layout: [47:0] = {ip_port[15:0], ip_address[31:0]}
+    writeTcpReg(CnfgLegRegs::TCP_OPEN_CONN_REG, CnfgAvxRegs::TCP_OPEN_CONN_REG, (static_cast<uint64_t>(port) << 32) | ip_addr);
+
+    if (!pollTcpStat(CnfgLegRegs::TCP_OPEN_CONN_STAT_REG, CnfgAvxRegs::TCP_OPEN_CONN_STAT_REG, TCP_CONN_STAT_BUSY, timeout_ms, stat) || !(stat & 0x1)) {
         std::cerr << "ERROR: cThread::openConnTcp() no answer from the TCP stack within " << timeout_ms << " ms" << std::endl;
         return -1;
     }
@@ -1517,10 +1532,17 @@ int32_t cThread::openConnTcp(uint32_t ip_addr, uint16_t port, uint32_t timeout_m
         return -1;
     }
 
-    uint16_t session_id = static_cast<uint16_t>((stat >> 9) & 0xFFFF);
+    uint16_t session_id = static_cast<uint16_t>((stat >> TCP_CONN_STAT_SID_OFFS) & 0xFFFF);
     DBG1("cThread: openConnTcp got session_id=" << session_id);
     tcp_sessions.insert(session_id);
     return session_id;
+}
+
+void cThread::closeTcpSession(uint16_t session_id) {
+    uint64_t stat = 0;
+    if (!pollTcpStat(CnfgLegRegs::TCP_CLOSE_CONN_REG, CnfgAvxRegs::TCP_CLOSE_CONN_REG, TCP_CLOSE_BUSY, TCP_MGMT_TIMEOUT_MS, stat))
+        throw std::runtime_error("ERROR: cThread: the previous TCP close request was not accepted");
+    writeTcpReg(CnfgLegRegs::TCP_CLOSE_CONN_REG, CnfgAvxRegs::TCP_CLOSE_CONN_REG, session_id);
 }
 
 void cThread::closeConnTcp(uint16_t session_id) {
@@ -1529,17 +1551,8 @@ void cThread::closeConnTcp(uint16_t session_id) {
     if (!fcnfg.en_tcp)
         throw std::runtime_error("ERROR: cThread::closeConnTcp() called but shell not synthesised with TCP support");
 
-#ifdef EN_AVX
-    if (fcnfg.en_avx) {
-        avxRegs()[static_cast<uint32_t>(CnfgAvxRegs::TCP_CLOSE_CONN_REG)] =
-            _mm256_set_epi64x(0, 0, 0, static_cast<uint64_t>(session_id));
-    } else {
-#endif
-        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_CLOSE_CONN_REG)] = static_cast<uint64_t>(session_id);
-#ifdef EN_AVX
-    }
-#endif
-
+    auto guard = lockMgmt();
+    closeTcpSession(session_id);
     tcp_sessions.erase(session_id);
 }
 

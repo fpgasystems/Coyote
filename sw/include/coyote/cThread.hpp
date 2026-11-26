@@ -213,14 +213,24 @@ protected:
 	int tcpPortReq(uint16_t req, uint32_t timeout_ms);
 
 	/**
-	 * @brief Polls a TCP status register until its done bit [0] is set
+	 * @brief Polls a TCP register until its busy bit is clear
 	 * @param reg_leg Register (legacy mapping)
 	 * @param reg_avx Register (AVX mapping)
+	 * @param busy Busy bit of the register
 	 * @param timeout_ms Time to wait
-	 * @param stat Value of the status register
+	 * @param stat Value of the register
 	 * @return false on timeout
 	 */
-	bool pollTcpStat(CnfgLegRegs reg_leg, CnfgAvxRegs reg_avx, uint32_t timeout_ms, uint64_t &stat);
+	bool pollTcpStat(CnfgLegRegs reg_leg, CnfgAvxRegs reg_avx, uint64_t busy, uint32_t timeout_ms, uint64_t &stat);
+
+	/// Writes a TCP request register
+	void writeTcpReg(CnfgLegRegs reg_leg, CnfgAvxRegs reg_avx, uint64_t val);
+
+	/// Closes a TCP session once the previous close was accepted; mgmt_lock must be held
+	void closeTcpSession(uint16_t session_id);
+
+	/// Takes mgmt_lock, waiting at most TCP_MGMT_TIMEOUT_MS; throws if it is held longer (e.g. left by a killed process)
+	boost::interprocess::scoped_lock<boost::interprocess::named_mutex> lockMgmt();
 	
 
 	/**
@@ -386,8 +396,9 @@ protected:
 	/**
 	 * @brief Tell the TCP stack to listen on a port.
 	 *
-	 * Writes the port to TCP_OPEN_PORT_REG, which pulses the listen request to the TCP stack,
-	 * then polls TCP_OPEN_PORT_STAT_REG until the stack confirms the port is open.
+	 * Under mgmt_lock, waits until no earlier listen request is outstanding, writes the port to TCP_OPEN_PORT_REG
+	 * and polls TCP_OPEN_PORT_STAT_REG until the TCP stack answers. Throws if the port is rejected, on timeout,
+	 * or if mgmt_lock cannot be taken within TCP_MGMT_TIMEOUT_MS.
 	 *
 	 * @param port TCP port number to listen on
 	 * @param timeout_ms Time to wait for the TCP stack's answer; on timeout an error is printed and an exception thrown
@@ -409,8 +420,10 @@ protected:
 	/**
 	 * @brief Open an outbound TCP connection and return the session ID.
 	 *
-	 * Writes {port[15:0], ip_addr[31:0]} to TCP_OPEN_CONN_REG, then polls
-	 * TCP_OPEN_CONN_STAT_REG until the TCP stack returns a session ID.
+	 * Under mgmt_lock, writes {port[15:0], ip_addr[31:0]} to TCP_OPEN_CONN_REG, then polls
+	 * TCP_OPEN_CONN_STAT_REG until the TCP stack returns a session ID. If an open of an earlier call that
+	 * timed out is still outstanding, it first waits for its answer and closes that session.
+	 * Throws if the shell has no TCP or if mgmt_lock cannot be taken within TCP_MGMT_TIMEOUT_MS.
 	 * The caller passes the returned session ID to the vFPGA user logic
 	 * (e.g. via a CSR register), which uses it as req_t.sid in its sq_wr requests.
 	 *
@@ -425,8 +438,9 @@ protected:
 	/**
 	 * @brief Close an open TCP connection.
 	 *
-	 * Writes the session ID to TCP_CLOSE_CONN_REG to request teardown.
-	 * Fire-and-forget: no acknowledgement is polled.
+	 * Under mgmt_lock, waits until the previous close was accepted (busy bit of TCP_CLOSE_CONN_REG), then writes
+	 * the session ID to TCP_CLOSE_CONN_REG. Does not wait for the teardown itself. Throws if the shell has no TCP,
+	 * if the previous close is not accepted or if mgmt_lock cannot be taken within TCP_MGMT_TIMEOUT_MS.
 	 *
 	 * @param session_id Session ID returned by a prior openConnTcp call
 	 */

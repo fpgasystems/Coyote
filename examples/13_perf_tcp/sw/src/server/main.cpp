@@ -53,12 +53,14 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Listen port: " << port << std::endl;
 
+    // Signal handlers first, so that Ctrl+C during listenTcp does not kill the process while it holds the
+    // vFPGA's connection management lock
+    std::signal(SIGINT, requestStop);
+    std::signal(SIGTERM, requestStop);
+
     // Set up thread and listen on port; after that, software need not do anything
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
     coyote_thread.listenTcp(port);
-
-    std::signal(SIGINT, requestStop);
-    std::signal(SIGTERM, requestStop);
     std::cout << "Server running. Press Ctrl+C to stop." << std::endl;
 
     while (!stop_requested) { sleep(1); }
