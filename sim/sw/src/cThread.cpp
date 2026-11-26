@@ -179,6 +179,7 @@ public:
 cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(int)> uisr):
   hpid(hpid), vfid(vfid),
   vlock(boost::interprocess::open_or_create, ("vpga_mtx_user_" + std::to_string(std::time(nullptr))).c_str()),
+  mgmt_lock(boost::interprocess::open_or_create, ("vpga_mtx_mgmt_" + std::to_string(std::time(nullptr))).c_str()),
   additional_state(std::make_unique<AdditionalState>()) { // Timestamp for plock to prevent multiple users aquiring the same lock at the same time which does not matter for the simulation, only for hardware
     auto raw_sim_dir = std::getenv("COYOTE_SIM_DIR");
     if (raw_sim_dir == nullptr) {
@@ -547,13 +548,8 @@ void cThread::invoke(CoyoteOper oper, rdmaSg sg, bool last) {
     ASSERT("Networking not implemented in simulation target!")
 }
 
-void cThread::invoke(CoyoteOper oper, tcpSg sg, bool last) {
-    ASSERT("Networking not implemented in simulation target!")
-}
-
 uint32_t cThread::checkCompleted(CoyoteOper oper) const {
     if (isRemoteRdma(oper)) {ASSERT("Networking not implemented in simulation target!")}
-    if (isRemoteTcp(oper)) {ASSERT("Networking not implemented in simulation target!")}
 
     // Based on the type of operation, check completion via a read access to the configuration registers 
     uint32_t result;
@@ -604,6 +600,23 @@ void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_
 
 void cThread::closeConn() {
     ASSERT("Networking not implemented in simulation target")
+}
+
+void cThread::listenTcp(uint16_t, uint32_t) {
+    ASSERT("Networking not implemented in simulation target!")
+}
+
+void cThread::stopListenTcp(uint16_t, uint32_t) {
+    ASSERT("Networking not implemented in simulation target!")
+}
+
+int32_t cThread::openConnTcp(uint32_t, uint16_t, uint32_t) {
+    ASSERT("Networking not implemented in simulation target!")
+    return -1;
+}
+
+void cThread::closeConnTcp(uint16_t) {
+    ASSERT("Networking not implemented in simulation target!")
 }
 
 void cThread::lock() {
