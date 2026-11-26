@@ -226,12 +226,13 @@ if {$cfg(en_tcp) eq 1} {
     # Per-vFPGA RX queue (tcp_rx.sv): TCP_RX_QUEUE_BYTES of data and one {len, sid} entry per segment (<= one per beat)
     set nn 16
     while {$nn < $cfg(tcp_rx_queue_bytes) / 64} { set nn [expr {2 * $nn}] }
+    set mt [expr {$nn >= 4096 ? "ultra" : "auto"}]
 
     create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_512_tcp_rx
-    set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH $nn CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1}] [get_ips axis_data_fifo_512_tcp_rx]
+    set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH $nn CONFIG.FIFO_MEMORY_TYPE $mt CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1}] [get_ips axis_data_fifo_512_tcp_rx]
 
     create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_tcp_rx_desc
-    set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.FIFO_DEPTH $nn] [get_ips axis_data_fifo_tcp_rx_desc]
+    set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.FIFO_DEPTH $nn CONFIG.FIFO_MEMORY_TYPE $mt] [get_ips axis_data_fifo_tcp_rx_desc]
 }
 
 ## Crossings

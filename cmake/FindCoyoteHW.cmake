@@ -150,7 +150,7 @@ set(EN_TCP 0 CACHE STRING "Enable TCP/IP stack.")
 set(N_TCP_AXI 1 CACHE STRING "Number of TCP/IP streams")
 
 # TCP/IP RX queue per vFPGA [B]; also the initial RX credit of each vFPGA in the TOE
-set(TCP_RX_QUEUE_BYTES 65536 CACHE STRING "TCP/IP RX queue size per vFPGA [B]")
+set(TCP_RX_QUEUE_BYTES 262080 CACHE STRING "TCP/IP RX queue size per vFPGA [B]; caps one vFPGA's RX at this size per RTT")
 
 # Packet sniffer
 set(EN_SNIFFER 0 CACHE STRING "Enable packet sniffer.")

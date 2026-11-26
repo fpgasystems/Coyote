@@ -307,7 +307,7 @@ Deploy: program bitstream, `insmod coyote_driver.ko`, run (see [examples/README.
 | `EN_STRM` (1), `N_STRM_AXI` (1) | host streams `axis_host_*[N_STRM_AXI]` |
 | `EN_MEM` (0), `N_CARD_AXI` (1) | card streams `axis_card_*[N_CARD_AXI]`, enables sync/offload |
 | `EN_RDMA` (0), `N_RDMA_AXI` (1) | `rq_rd`, `rq_wr`, `axis_rreq_*`, `axis_rrsp_*` (US+ only) |
-| `EN_TCP` (0), `N_TCP_AXI` (1), `TCP_RX_QUEUE_BYTES` (65536) | TCP `rq_wr`/`sq_rd`/`cq_rd`/`sq_wr`/`cq_wr`, `axis_tcp_recv[N_TCP_AXI]`, `axis_tcp_send[N_TCP_AXI]`; per-vFPGA RX queue size |
+| `EN_TCP` (0), `N_TCP_AXI` (1), `TCP_RX_QUEUE_BYTES` (262080) | TCP `rq_wr`/`sq_rd`/`cq_rd`/`sq_wr`/`cq_wr`, `axis_tcp_recv[N_TCP_AXI]`, `axis_tcp_send[N_TCP_AXI]`; per-vFPGA RX queue size |
 | `EN_SNIFFER` (0), `SNIFFER_VFPGA_ID` (0) | sniffer ports on that vFPGA only; setting it forces `EN_NET=1` (cmake: `EN_RDMA OR EN_TCP OR EN_SNIFFER`), which exposes `rq_wr`. Sniffer-only builds (no RDMA/TCP) leave the wrapper's remote sinks/`user_rq_wr_int` undriven (NET-07); example 11 sets `EN_RDMA=1` |
 | `DATA_DEST_BITS` (4) | width of `dest`/`vfid` fields |
 | `VADDR_BITS` (48) | `vaddr` width |
