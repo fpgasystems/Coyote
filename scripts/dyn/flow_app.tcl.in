@@ -60,6 +60,7 @@ for {set i 0}  {$i < $cfg(n_config)} {incr i} {
     }
     append cmd " } -part $part -top cyt_top"
     eval $cmd
+    run_post_link_hooks app_link $i
     write_checkpoint -force "$dcp_dir/config_$i/shell_linked_c$i.dcp"
 
     # Compilation

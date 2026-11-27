@@ -86,6 +86,7 @@ if {$cfg(en_shell_pblock) eq 1} {
 } else {
     link_design -mode default -part $part -top cyt_top
 }
+run_post_link_hooks shell_link 0
 write_checkpoint -force "$dcp_dir/shell_linked.dcp"
 
 #########################################################################################################

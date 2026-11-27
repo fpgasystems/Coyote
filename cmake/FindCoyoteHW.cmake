@@ -166,6 +166,9 @@ set(N_CONFIG 1 CACHE STRING "Number of PR configurations (for each vFPGA)")
 # Floorplan for PR; for more details on floorplans, Example 9: Partial Reconfiguration 
 set(FPLAN_PATH 0 CACHE STRING "Path to vFPGA floorplan; only applicable if EN_PR=1")
 
+# User Tcl scripts (e.g., floorplans) sourced after every link_design, as a CMake list of paths relative to CMAKE_SOURCE_DIR. For more details, see the quick start guide
+set(POST_LINK_TCL "" CACHE STRING "User Tcl scripts sourced after linking the design")
+
 # Number of clock cycles after which the loaded app is considered valid (due to the ICAP done signal being lost if crossing SLR regions on the U55C)
 set(EOS_TIME 1000000 CACHE STRING "End of startup time.")
 
@@ -339,6 +342,18 @@ macro(validation_checks_hw)
     if(NOT NN EQUAL 1)
         message(FATAL_ERROR "Choose one build flow.")
     endif()
+
+    # Vivado runs from the build directory, so the hook paths must be absolute
+    set(POST_LINK_TCL_ABS "")
+    set(POST_LINK_TCL_TCL "")
+    foreach(hook ${POST_LINK_TCL})
+        get_filename_component(hook_abs "${hook}" ABSOLUTE BASE_DIR "${CMAKE_SOURCE_DIR}")
+        if(NOT EXISTS "${hook_abs}")
+            message(FATAL_ERROR "Post-link Tcl script (POST_LINK_TCL) not found: ${hook_abs}")
+        endif()
+        list(APPEND POST_LINK_TCL_ABS "${hook_abs}")
+        string(APPEND POST_LINK_TCL_TCL " {${hook_abs}}")
+    endforeach()
 
     if(BUILD_SHELL OR BUILD_STATIC)
         if((SHELL_PROBE EQUAL STATIC_PROBE) AND BUILD_SHELL)
@@ -1158,7 +1173,7 @@ macro(gen_targets)
             add_custom_command(
                 OUTPUT ${DEP_DCP_LIST_LINK}
                 ${LINK_CMD}
-                DEPENDS ${DEP_DCP_LIST_SYNTH_USER}
+                DEPENDS ${DEP_DCP_LIST_SYNTH_USER} ${POST_LINK_TCL_ABS}
             )
 
             # Shell place & route
@@ -1197,7 +1212,7 @@ macro(gen_targets)
             add_custom_command(
                 OUTPUT ${DEP_DCP_LIST_DYN}
                 ${APP_CMD}
-                DEPENDS ${DEP_DCP_LIST_COMP}
+                DEPENDS ${DEP_DCP_LIST_COMP} ${POST_LINK_TCL_ABS}
             )
         else()
             # On UltraScale+ devices (which support nested DFX), the partial vFPGA bitstreams are 
@@ -1206,7 +1221,7 @@ macro(gen_targets)
                 add_custom_command(
                     OUTPUT ${DEP_DCP_LIST_DYN}
                     ${DYN_CMD}
-                    DEPENDS ${DEP_DCP_LIST_COMP}
+                    DEPENDS ${DEP_DCP_LIST_COMP} ${POST_LINK_TCL_ABS}
                 )
             # Versal devices, however, do not support nested DFX, and as such, no shell subdivision/recombination
             # Therefore, the shell is not linked and routed; instead, it loads the synthesised DCPs for the
@@ -1215,7 +1230,7 @@ macro(gen_targets)
                 add_custom_command(
                     OUTPUT ${DEP_DCP_LIST_DYN}
                     ${DYN_CMD}
-                    DEPENDS ${DEP_DCP_LIST_SYNTH_USER}
+                    DEPENDS ${DEP_DCP_LIST_SYNTH_USER} ${POST_LINK_TCL_ABS}
                 )
             else()
                 message(FATAL_ERROR "Unsupported FPGA architecture.")

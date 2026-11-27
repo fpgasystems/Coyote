@@ -59,6 +59,7 @@ set cfg(build_dir)              ${CMAKE_BINARY_DIR}
 set cfg(static_path)            ${STATIC_PATH}
 set cfg(shell_path)             ${SHELL_PATH}
 set cfg(fplan_path)             ${FPLAN_PATH}
+set cfg(post_link_tcl)          [list${POST_LINK_TCL_TCL}]
 set cfg(aclk_p)                 ${ACLK_P}
 set cfg(nclk_p)                 ${NCLK_P}
 set cfg(uclk_p)                 ${UCLK_P}
@@ -194,6 +195,15 @@ set clr_flow 6
 set clr_cmplt 214
 set clr_error 9
 set clr_rest 3
+
+# Sourced inside a proc, so that the scripts cannot overwrite the variables of the flow (e.g., loop indices)
+proc run_post_link_hooks {cyt_hook_stage cyt_hook_config} {
+    global cfg clr_flow
+    foreach cyt_hook_path $cfg(post_link_tcl) {
+        puts "[color $clr_flow "** Sourcing $cyt_hook_path ($cyt_hook_stage, config $cyt_hook_config)"]"
+        source $cyt_hook_path
+    }
+}
 
 ########################################################################################################
 # CHECK IP REPO EXISTS
