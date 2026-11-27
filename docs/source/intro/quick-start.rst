@@ -240,6 +240,19 @@ This can be done by opening the generated ``shell_subdivided.dcp`` checkpoint.
 Check out the following link for a detailed `floor-planning guide <https://docs.amd.com/r/en-US/ug903-vivado-using-constraints/Floorplanning>`_.
 Alternatively, users can provide pre-existing vFPGA floor-plan via the ``FPLAN_PATH`` variable during configuration.
 
+Independently of partial reconfiguration, additional Tcl scripts (e.g., floor-plans for timing closure) can be passed via the ``POST_LINK_TCL`` variable, a CMake list of paths:
+
+.. code-block:: cmake
+
+    set(POST_LINK_TCL "${CMAKE_SOURCE_DIR}/fplan/my_floorplan.tcl")
+
+These scripts are sourced right after every ``link_design`` in the implementation flows, with the linked design open.
+Each script can read the build configuration (e.g., ``$cfg(n_reg)``), the flow stage it runs in (``$cyt_hook_stage``: ``shell_link``, ``dyn_link`` or ``app_link``) and the configuration index (``$cyt_hook_config``).
+Note that in the ``dyn_link`` stage for configurations other than 0 and in the ``app_link`` stage, the shell is already routed and locked, so only the vFPGA logic can still be constrained.
+``POST_LINK_TCL`` has to be set before ``validation_checks_hw()``, which resolves the paths, a later change is ignored.
+With the shell pblock (``EN_SHELL_PBLOCK = 1``), user pblocks have to lie inside ``pblock_inst_shell``.
+With ``EN_PR = 1``, the scripts run in the ``shell_link`` stage and again in the ``dyn_link`` stage on the linked shell, so a script that creates pblocks should check ``$cyt_hook_stage`` to create them only once.
+
 Once the (typically quite lengthy) compilation is done, the bitstreams will be generated for each application and configuration.
 The shell bitstream (*the dynamic layer bitstream*) with the initial (config 0) configuration will also be generated. 
 This one can be used to load the shell dynamically and swap out other shells during runtime.

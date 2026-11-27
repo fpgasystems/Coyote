@@ -92,6 +92,7 @@ for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
 }
 append cmd " } -part $part -top cyt_top"
 eval $cmd
+run_post_link_hooks dyn_link 0
 write_checkpoint -force "$dcp_dir/config_0/shell_linked_c0.dcp"
 
 # Compilation
@@ -171,6 +172,7 @@ for {set i 1}  {$i < $cfg(n_config)} {incr i} {
     }
     append cmd " } -part $part -top cyt_top"
     eval $cmd
+    run_post_link_hooks dyn_link $i
     write_checkpoint -force "$dcp_dir/config_$i/shell_linked_c$i.dcp"
 
     # Compilation
