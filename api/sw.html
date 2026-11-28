@@ -128,6 +128,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote11CoyoteAlloc10gpu_dev_idE"><code class="docutils literal notranslate"><span class="pre">gpu_dev_id</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote11CoyoteAlloc13gpu_dmabuf_fdE"><code class="docutils literal notranslate"><span class="pre">gpu_dmabuf_fd</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote11CoyoteAlloc9mem_blockE"><code class="docutils literal notranslate"><span class="pre">mem_block</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote11CoyoteAlloc15lazy_card_allocE"><code class="docutils literal notranslate"><span class="pre">lazy_card_alloc</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote11CoyoteAlloc3memE"><code class="docutils literal notranslate"><span class="pre">mem</span></code></a></li>
 </ul>
 </li>
@@ -237,7 +238,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread14writeQpContextE8uint32_t"><code class="docutils literal notranslate"><span class="pre">writeQpContext()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tNSt8functionIFviEEE"><code class="docutils literal notranslate"><span class="pre">cThread()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThreadD0Ev"><code class="docutils literal notranslate"><span class="pre">~cThread()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7userMapEPv8uint64_t7int32_t"><code class="docutils literal notranslate"><span class="pre">userMap()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7userMapEPv8uint64_t7int32_tb"><code class="docutils literal notranslate"><span class="pre">userMap()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread9userUnmapEPv"><code class="docutils literal notranslate"><span class="pre">userUnmap()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread6getMemERR11CoyoteAlloc"><code class="docutils literal notranslate"><span class="pre">getMem()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7freeMemEPv"><code class="docutils literal notranslate"><span class="pre">freeMem()</span></code></a></li>
@@ -911,6 +912,12 @@
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote11CoyoteAlloc9mem_blockE">
 <span id="_CPPv3N6coyote11CoyoteAlloc9mem_blockE"></span><span id="_CPPv2N6coyote11CoyoteAlloc9mem_blockE"></span><span id="coyote::CoyoteAlloc::mem_block__int32_t"></span><span class="target" id="structcoyote_1_1CoyoteAlloc_1a28384225d64639ead6e4ae34b4d56f64"></span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mem_block</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="o"><span class="pre">-</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N6coyote11CoyoteAlloc9mem_blockE" title="Link to this definition"></a><br /></dt>
 <dd><p>Target memory block on the card; only applicable to Versal devices; otherwise ignored TODO: Add a pointer to some docs, once available </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6coyote11CoyoteAlloc15lazy_card_allocE">
+<span id="_CPPv3N6coyote11CoyoteAlloc15lazy_card_allocE"></span><span id="_CPPv2N6coyote11CoyoteAlloc15lazy_card_allocE"></span><span id="coyote::CoyoteAlloc::lazy_card_alloc__b"></span><span class="target" id="structcoyote_1_1CoyoteAlloc_1a02b2d445f9b2eb4ceb6df991825ce7a2"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">lazy_card_alloc</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="k"><span class="pre">false</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N6coyote11CoyoteAlloc15lazy_card_allocE" title="Link to this definition"></a><br /></dt>
+<dd><p>Only allocate card memory once the buffer is migrated to the card, instead of when it is mapped. Allows mapping more host memory than there is card memory. See <a class="reference internal" href="#classcoyote_1_1cThread_1affd7744312de80ca73b1995afb98c91e"><span class="std std-ref">cThread::userMap</span></a> for the caveats </p>
 </dd></dl>
 
 <dl class="cpp var">
@@ -1805,15 +1812,17 @@ TODO:<ul class="simple">
 </dd></dl>
 
 <dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread7userMapEPv8uint64_t7int32_t">
-<span id="_CPPv3N6coyote7cThread7userMapEPv8uint64_t7int32_t"></span><span id="_CPPv2N6coyote7cThread7userMapEPv8uint64_t7int32_t"></span><span id="coyote::cThread::userMap__voidP.uint64_t.int32_t"></span><span class="target" id="classcoyote_1_1cThread_1af72822405dadbc07c8114726615fa369"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">userMap</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">vaddr</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">len</span></span>, <span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">mem_block</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="o"><span class="pre">-</span></span><span class="m"><span class="pre">1</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread7userMapEPv8uint64_t7int32_t" title="Link to this definition"></a><br /></dt>
+<dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread7userMapEPv8uint64_t7int32_tb">
+<span id="_CPPv3N6coyote7cThread7userMapEPv8uint64_t7int32_tb"></span><span id="_CPPv2N6coyote7cThread7userMapEPv8uint64_t7int32_tb"></span><span id="coyote::cThread::userMap__voidP.uint64_t.int32_t.b"></span><span class="target" id="classcoyote_1_1cThread_1affd7744312de80ca73b1995afb98c91e"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">userMap</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">vaddr</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">len</span></span>, <span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">mem_block</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="o"><span class="pre">-</span></span><span class="m"><span class="pre">1</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">lazy_card_alloc</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">false</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread7userMapEPv8uint64_t7int32_tb" title="Link to this definition"></a><br /></dt>
 <dd><p>Maps a buffer to the vFPGA’s TLB. Automatically detects GPU memory (when compiled with EN_ROCM or EN_CUDA) using HIP/CUDA pointer query APIs. GPU memory is registered via IOCTL_MAP_DMABUF (the dmabuf is exported internally); all other memory uses IOCTL_MAP_USER_MEM. The dmabuf fd is stored internally and released by userUnmap. </p>
+<p>If the shell has card memory, the corresponding card memory is allocated when the buffer is mapped and this function throws if there is not enough card memory left. With lazy_card_alloc, host memory only gets card memory once it is migrated to the card, i.e., on a LOCAL_OFFLOAD or on a page fault from a card stream. This allows mapping more host memory than there is card memory. However, only LOCAL_OFFLOAD reports running out of card memory (by throwing). On a page fault, the request is dropped and the corresponding invoke never completes, with only an error in dmesg. Therefore, lazily allocated buffers should be off-loaded with LOCAL_OFFLOAD before they are accessed from a card stream.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>vaddr</strong> – Virtual address of the buffer </p></li>
 <li><p><strong>len</strong> – Length of the buffer, in bytes </p></li>
 <li><p><strong>mem_block</strong> – What memory block to store this memory in; only applicable to Versal devices When -1, the driver picks the first PC with sufficient space </p></li>
+<li><p><strong>lazy_card_alloc</strong> – Only allocate the card memory once the buffer is migrated to the card, ignored for GPU memory </p></li>
 </ul>
 </dd>
 </dl>
@@ -1834,6 +1843,7 @@ TODO:<ul class="simple">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread6getMemERR11CoyoteAlloc">
 <span id="_CPPv3N6coyote7cThread6getMemERR11CoyoteAlloc"></span><span id="_CPPv2N6coyote7cThread6getMemERR11CoyoteAlloc"></span><span id="coyote::cThread::getMem__CoyoteAllocRR"></span><span class="target" id="classcoyote_1_1cThread_1a3e36c3fb7a149916117f3b51a3b34a4e"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">getMem</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N6coyote11CoyoteAllocE" title="coyote::CoyoteAlloc"><span class="n"><span class="pre">CoyoteAlloc</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">alloc</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread6getMemERR11CoyoteAlloc" title="Link to this definition"></a><br /></dt>
 <dd><p>Allocates memory for this <a class="reference internal" href="#classcoyote_1_1cThread"><span class="std std-ref">cThread</span></a> and maps it into the vFPGA’s TLB. </p>
+<p>Card memory is allocated as described in userMap. When alloc.lazy_card_alloc is set, running out of card memory is only reported by LOCAL_OFFLOAD, so use it to reserve card memory before card accesses.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>alloc</strong> – <a class="reference internal" href="#structcoyote_1_1CoyoteAlloc"><span class="std std-ref">CoyoteAlloc</span></a> object containing the allocation parameters, including size, type (e.g., hugepage, GPU) etc. </p>
@@ -1890,6 +1900,10 @@ TODO:<ul class="simple">
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Syncs and off-loads are blocking (synchronous) by design </p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>LOCAL_SYNC skips buffers that are not on the card (never off-loaded or already migrated back to the host) </p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
