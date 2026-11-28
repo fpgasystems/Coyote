@@ -282,17 +282,32 @@ void cThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_
         std::hex << offs_3 << ", " << offs_2 << ", " << offs_1 << ", " << offs_0 << std::dec
     );
 
-    // Check outstanding commands; to avoid oversaturating the command FIFO
-    while (cmd_cnt > (CMD_FIFO_DEPTH - CMD_FIFO_THR)) {
-        #ifdef EN_AVX
-        cmd_cnt = fcnfg.en_avx ? LOW_32(_mm256_extract_epi32(avxRegs()[static_cast<uint32_t>(CnfgAvxRegs::CTRL_REG)], 0x0)) :
-                                cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)];
-        #else
-        cmd_cnt = cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)];
-        #endif
+    // Determine the command queues of this command, as the shell does (see cnfg_slave)
+    bool rd = offs_0 & CTRL_START;
+    bool wr = offs_2 & CTRL_START;
+    uint64_t strm_rd = (offs_0 >> CTRL_STRM_OFFS) & CTRL_STRM_MASK;
+    uint64_t strm_wr = (offs_2 >> CTRL_STRM_OFFS) & CTRL_STRM_MASK;
 
-        if (cmd_cnt > (CMD_FIFO_DEPTH - CMD_FIFO_THR)) {
-            std::this_thread::sleep_for(std::chrono::nanoseconds(SLEEP_TIME));
+    bool queues[N_CMD_QUEUES] = { false };
+    if (rd && wr) {
+        // A local command that reads from one stream and writes to another is split into one command per queue
+        queues[localCmdQueue(strm_rd)] = true;
+        queues[localCmdQueue(strm_wr)] = true;
+    } else if (rd || wr) {
+        uint64_t strm = rd ? strm_rd : strm_wr;
+        bool remote = fcnfg.en_net && strm != STRM_HOST && strm != STRM_CARD;
+        queues[remote ? CMD_QUEUE_REMOTE : localCmdQueue(strm)] = true;
+    }
+
+    // Check outstanding commands; to avoid oversaturating the command queues. Only the queues of this
+    // command matter, so a full queue of another stream does not block this command
+    for (int i = 0; i < N_CMD_QUEUES; i++) {
+        while (queues[i] && cmd_cnt[i] > (CMD_FIFO_DEPTH - CMD_FIFO_THR)) {
+            readCmdQueuesUsed();
+
+            if (cmd_cnt[i] > (CMD_FIFO_DEPTH - CMD_FIFO_THR)) {
+                std::this_thread::sleep_for(std::chrono::nanoseconds(SLEEP_TIME));
+            }
         }
     }
 
@@ -311,7 +326,33 @@ void cThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_
     #endif
 
     // Increment
-    cmd_cnt++;
+    for (int i = 0; i < N_CMD_QUEUES; i++) {
+        if (queues[i]) {
+            cmd_cnt[i]++;
+        }
+    }
+}
+
+int cThread::localCmdQueue(uint64_t strm) const {
+    // With host and card streams, host stream commands go to the host queue and all other local commands to
+    // the card queue. Otherwise, all local commands go to the only local queue
+    if (fcnfg.en_strm && fcnfg.en_mem) {
+        return strm == STRM_HOST ? CMD_QUEUE_HOST : CMD_QUEUE_CARD;
+    }
+    return fcnfg.en_strm ? CMD_QUEUE_HOST : CMD_QUEUE_CARD;
+}
+
+void cThread::readCmdQueuesUsed() {
+    #ifdef EN_AVX
+    uint64_t used = fcnfg.en_avx ? LOW_32(_mm256_extract_epi32(avxRegs()[static_cast<uint32_t>(CnfgAvxRegs::CTRL_REG)], 0x0)) :
+                                   cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)];
+    #else
+    uint64_t used = cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)];
+    #endif
+
+    for (int i = 0; i < N_CMD_QUEUES; i++) {
+        cmd_cnt[i] = (used >> (i * CMD_QUEUE_USED_BITS)) & CMD_QUEUE_USED_MASK;
+    }
 }
 
 void cThread::mmapFpga() {

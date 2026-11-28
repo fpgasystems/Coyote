@@ -58,7 +58,16 @@ module mmu_top #(
     metaIntf.s                          s_notify [N_REGIONS],
 
 	// Requests user
-    metaIntf.m                          m_host_sq [N_REGIONS],
+    // Host requests, one command queue per stream
+`ifdef EN_STRM
+    metaIntf.m                          m_host_sq_host [N_REGIONS],
+`endif
+`ifdef EN_MEM
+    metaIntf.m                          m_host_sq_card [N_REGIONS],
+`endif
+`ifdef EN_NET
+    metaIntf.m                          m_host_sq_remote [N_REGIONS],
+`endif
 
     // Bypass
 	metaIntf.s 						    s_bpss_rd_sq [N_REGIONS],
@@ -250,7 +259,15 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
     `else
             .s_axi_ctrl(s_axi_ctrl_cnfg[i]),
     `endif
-            .m_host_sq(m_host_sq[i]),
+    `ifdef EN_STRM
+            .m_host_sq_host(m_host_sq_host[i]),
+    `endif
+    `ifdef EN_MEM
+            .m_host_sq_card(m_host_sq_card[i]),
+    `endif
+    `ifdef EN_NET
+            .m_host_sq_remote(m_host_sq_remote[i]),
+    `endif
             .m_bpss_done_rd(m_bpss_rd_cq[i]),
             .m_bpss_done_wr(m_bpss_wr_cq[i]),
     `ifdef EN_STRM

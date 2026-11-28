@@ -84,8 +84,8 @@ protected:
 	/// RDMA queue pair
     std::unique_ptr<ibvQp> qpair; 
 
-	/// Number data transfer commands sent to the vFPGA
-	uint32_t cmd_cnt = { 0 };
+	/// Number of data transfer commands sent to each command queue of the vFPGA, see CMD_QUEUE_*
+	uint32_t cmd_cnt[N_CMD_QUEUES] = { 0 };
 
 	/// User interrupt file descriptor
 	int32_t efd = { -1 };
@@ -154,6 +154,8 @@ protected:
 	 * @brief Posts a DMA command to the vFPGA
 	 *
 	 * This function triggers a DMA command by writing the provided offsets to the appropriate control registers.
+	 * The shell queues the commands per stream (host, card, remote), so the outstanding commands are throttled
+	 * per command queue: a full queue of one stream does not stop commands of the other streams.
 	 * @param offs_3 Destination address
 	 * @param offs_2 Destination control signals (e.g., size, offset, stream etc.)
 	 * @param offs_1 Source address
@@ -161,6 +163,12 @@ protected:
 
 	 */
 	void postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0);
+
+	/// Returns the command queue (CMD_QUEUE_HOST or CMD_QUEUE_CARD) of a local command on the given stream, as selected by the shell
+	int localCmdQueue(uint64_t strm) const;
+
+	/// Reads the occupancy of all command queues of the vFPGA into cmd_cnt
+	void readCmdQueuesUsed();
 
 	/**
 	 * @brief Sends an ack to the connected remote node via the out-of-band channel

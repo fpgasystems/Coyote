@@ -62,10 +62,22 @@ module design_user_wrapper_{{ c_reg }} (
     (* io_buffer_type = "none" *) input  logic                                notify_ready,
     (* io_buffer_type = "none" *) output irq_not_t                            notify_data,
 
-    // HOST DESCRIPTORS
-    (* io_buffer_type = "none" *) input  logic 							      host_sq_valid,
-    (* io_buffer_type = "none" *) output logic 							      host_sq_ready,
-    (* io_buffer_type = "none" *) input  dreq_t 							  host_sq_data,
+    // HOST DESCRIPTORS, one command queue per stream
+{% if cnfg.en_strm %}
+    (* io_buffer_type = "none" *) input  logic 							      host_sq_host_valid,
+    (* io_buffer_type = "none" *) output logic 							      host_sq_host_ready,
+    (* io_buffer_type = "none" *) input  dreq_t 							  host_sq_host_data,
+{% endif %}
+{% if cnfg.en_mem %}
+    (* io_buffer_type = "none" *) input  logic 							      host_sq_card_valid,
+    (* io_buffer_type = "none" *) output logic 							      host_sq_card_ready,
+    (* io_buffer_type = "none" *) input  dreq_t 							  host_sq_card_data,
+{% endif %}
+{% if cnfg.en_net %}
+    (* io_buffer_type = "none" *) input  logic 							      host_sq_remote_valid,
+    (* io_buffer_type = "none" *) output logic 							      host_sq_remote_ready,
+    (* io_buffer_type = "none" *) input  dreq_t 							  host_sq_remote_data,
+{% endif %}
 
     // BYPASS DESCRIPTORS
     (* io_buffer_type = "none" *) output logic                                bpss_rd_sq_valid,
@@ -296,12 +308,30 @@ module design_user_wrapper_{{ c_reg }} (
     assign notify.ready                         = notify_ready;
 
     // Host descriptors
-    metaIntf #(.STYPE(dreq_t)) host_sq (.*);
-    metaIntf #(.STYPE(dreq_t)) host_sq_int (.*);
+{% if cnfg.en_strm %}
+    metaIntf #(.STYPE(dreq_t)) host_sq_host (.*);
+    metaIntf #(.STYPE(dreq_t)) host_sq_host_int (.*);
+
+    assign host_sq_host.valid                   = host_sq_host_valid;
+    assign host_sq_host_ready                   = host_sq_host.ready;
+    assign host_sq_host.data                    = host_sq_host_data;
+{% endif %}
+{% if cnfg.en_mem %}
+    metaIntf #(.STYPE(dreq_t)) host_sq_card (.*);
+    metaIntf #(.STYPE(dreq_t)) host_sq_card_int (.*);
+
+    assign host_sq_card.valid                   = host_sq_card_valid;
+    assign host_sq_card_ready                   = host_sq_card.ready;
+    assign host_sq_card.data                    = host_sq_card_data;
+{% endif %}
+{% if cnfg.en_net %}
+    metaIntf #(.STYPE(dreq_t)) host_sq_remote (.*);
+    metaIntf #(.STYPE(dreq_t)) host_sq_remote_int (.*);
     
-    assign host_sq.valid                        = host_sq_valid;
-    assign host_sq_ready                        = host_sq.ready;
-    assign host_sq.data                         = host_sq_data;
+    assign host_sq_remote.valid                   = host_sq_remote_valid;
+    assign host_sq_remote_ready                   = host_sq_remote.ready;
+    assign host_sq_remote.data                    = host_sq_remote_data;
+{% endif %}
 
     // Bypass descriptors
     metaIntf #(.STYPE(req_t)) bpss_rd_req (.*);
@@ -504,7 +534,15 @@ module design_user_wrapper_{{ c_reg }} (
     meta_reg #(.DATA_BITS($bits(irq_not_t)) inst_reg_not (.aclk(aclk), .aresetn(aresetn), .s_meta(notify_int), .m_meta(notify));
 
     // Host request
-    meta_reg #(.DATA_BITS($bits(dreq_t))) inst_reg_host (.aclk(aclk), .aresetn(aresetn), .s_meta(host_sq), .m_meta(host_sq_int));
+{% if cnfg.en_strm %}
+    meta_reg #(.DATA_BITS($bits(dreq_t))) inst_reg_host_host (.aclk(aclk), .aresetn(aresetn), .s_meta(host_sq_host), .m_meta(host_sq_host_int));
+{% endif %}
+{% if cnfg.en_mem %}
+    meta_reg #(.DATA_BITS($bits(dreq_t))) inst_reg_host_card (.aclk(aclk), .aresetn(aresetn), .s_meta(host_sq_card), .m_meta(host_sq_card_int));
+{% endif %}
+{% if cnfg.en_net %}
+    meta_reg #(.DATA_BITS($bits(dreq_t))) inst_reg_host_remote (.aclk(aclk), .aresetn(aresetn), .s_meta(host_sq_remote), .m_meta(host_sq_remote_int));
+{% endif %}
 
     // Bypass
     meta_reg #(.DATA_BITS($bits(req_t)) inst_reg_bpss_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_rd_req_int), .m_meta(bpss_rd_req));
@@ -566,7 +604,15 @@ module design_user_wrapper_{{ c_reg }} (
     `META_ASSIGN(notify_int, notify)
 
     // Host request
-    `META_ASSIGN(host_sq, host_sq_int)
+{% if cnfg.en_strm %}
+    `META_ASSIGN(host_sq_host, host_sq_host_int)
+{% endif %}
+{% if cnfg.en_mem %}
+    `META_ASSIGN(host_sq_card, host_sq_card_int)
+{% endif %}
+{% if cnfg.en_net %}
+    `META_ASSIGN(host_sq_remote, host_sq_remote_int)
+{% endif %}
 
     // Bypass
     `META_ASSIGN(bpss_rd_req_int, bpss_rd_req)
@@ -625,14 +671,20 @@ module design_user_wrapper_{{ c_reg }} (
     metaIntf #(.STYPE(req_t)) user_sq_rd_int (.*);
     metaIntf #(.STYPE(req_t)) user_sq_wr_int (.*);
 
-    metaIntf #(.STYPE(req_t)) host_local_sq_rd (.*);
-    metaIntf #(.STYPE(req_t)) host_local_sq_wr (.*);
-    metaIntf #(.STYPE(req_t)) user_local_sq_rd (.*);
-    metaIntf #(.STYPE(req_t)) user_local_sq_wr (.*);
+{% if cnfg.en_strm %}
+    metaIntf #(.STYPE(req_t)) host_local_sq_rd_host (.*);
+    metaIntf #(.STYPE(req_t)) host_local_sq_wr_host (.*);
+    metaIntf #(.STYPE(req_t)) user_local_sq_rd_host (.*);
+    metaIntf #(.STYPE(req_t)) user_local_sq_wr_host (.*);
 
-    metaIntf #(.STYPE(req_t)) local_sq_rd (.*);
-    metaIntf #(.STYPE(req_t)) local_sq_wr (.*);
+{% endif %}
+{% if cnfg.en_mem %}
+    metaIntf #(.STYPE(req_t)) host_local_sq_rd_card (.*);
+    metaIntf #(.STYPE(req_t)) host_local_sq_wr_card (.*);
+    metaIntf #(.STYPE(req_t)) user_local_sq_rd_card (.*);
+    metaIntf #(.STYPE(req_t)) user_local_sq_wr_card (.*);
 
+{% endif %}
 {% if cnfg.en_net %}
     metaIntf #(.STYPE(dreq_t)) host_remote_sq_rd (.*);
     metaIntf #(.STYPE(dreq_t)) host_remote_sq_wr (.*);
@@ -646,10 +698,18 @@ module design_user_wrapper_{{ c_reg }} (
 
     // Host request mux
     host_req_mux inst_host_mux (
-        .host_sq(host_sq_int),
-        .host_local_rd(host_local_sq_rd),
-        .host_local_wr(host_local_sq_wr),
+{% if cnfg.en_strm %}
+        .host_sq_host(host_sq_host_int),
+        .host_local_rd_host(host_local_sq_rd_host),
+        .host_local_wr_host(host_local_sq_wr_host),
+{% endif %}
+{% if cnfg.en_mem %}
+        .host_sq_card(host_sq_card_int),
+        .host_local_rd_card(host_local_sq_rd_card),
+        .host_local_wr_card(host_local_sq_wr_card),
+{% endif %}
 {% if cnfg.en_net %}
+        .host_sq_remote(host_sq_remote_int),
         .host_remote_rd(host_remote_sq_rd),
         .host_remote_wr(host_remote_sq_wr),
 {% endif %}
@@ -663,8 +723,14 @@ module design_user_wrapper_{{ c_reg }} (
     ) inst_user_mux (
         .user_sq_rd(user_sq_rd_int),
         .user_sq_wr(user_sq_wr_int),
-        .user_local_rd(user_local_sq_rd),
-        .user_local_wr(user_local_sq_wr),
+{% if cnfg.en_strm %}
+        .user_local_rd_host(user_local_sq_rd_host),
+        .user_local_wr_host(user_local_sq_wr_host),
+{% endif %}
+{% if cnfg.en_mem %}
+        .user_local_rd_card(user_local_sq_rd_card),
+        .user_local_wr_card(user_local_sq_wr_card),
+{% endif %}
 {% if cnfg.en_net %}
         .user_remote_rd(user_remote_sq_rd),
         .user_remote_wr(user_remote_sq_wr),
@@ -674,22 +740,6 @@ module design_user_wrapper_{{ c_reg }} (
     );
 
     // Host user arbiters
-    req_arb_2_1 inst_arb_local_rd (
-        .aclk(aclk),
-        .aresetn(aresetn),
-        .s_req_0(user_local_sq_rd),
-        .s_req_1(host_local_sq_rd),
-        .m_req(local_sq_rd)
-    );
-
-    req_arb_2_1 inst_arb_local_wr (
-        .aclk(aclk),
-        .aresetn(aresetn),
-        .s_req_0(user_local_sq_wr),
-        .s_req_1(host_local_sq_wr),
-        .m_req(local_sq_wr)
-    );
-
 {% if cnfg.en_net %}
     dreq_arb_2_1 inst_arb_remote_rd (
         .aclk(aclk),
@@ -726,23 +776,46 @@ module design_user_wrapper_{{ c_reg }} (
     AXI4SR axis_card_send_int [N_CARD_AXI] (.*);
     AXI4SR axis_card_recv_int [N_CARD_AXI] (.*); 
     
+    // Host and user requests are merged per stream and direction, after the host and user
+    // requests were split by stream. A request that waits for the credits of its stream can
+    // therefore not block the requests of another stream.
+{% if cnfg.en_strm %}
+    req_arb_2_1 inst_arb_local_rd_host (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req_0(user_local_sq_rd_host),
+        .s_req_1(host_local_sq_rd_host),
+        .m_req(local_sq_rd_host)
+    );
+
+    req_arb_2_1 inst_arb_local_wr_host (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req_0(user_local_sq_wr_host),
+        .s_req_1(host_local_sq_wr_host),
+        .m_req(local_sq_wr_host)
+    );
+
+{% endif %}
+{% if cnfg.en_mem %}
+    req_arb_2_1 inst_arb_local_rd_card (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req_0(user_local_sq_rd_card),
+        .s_req_1(host_local_sq_rd_card),
+        .m_req(local_sq_rd_card)
+    );
+
+    req_arb_2_1 inst_arb_local_wr_card (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req_0(user_local_sq_wr_card),
+        .s_req_1(host_local_sq_wr_card),
+        .m_req(local_sq_wr_card)
+    );
+
+{% endif %}
 {% if cnfg.en_strm and cnfg.en_mem %}
-    req_mux_stream_1_2 inst_stream_mux_rd (
-        .s_req(local_sq_rd),
-        .m_req_0(local_sq_rd_host),
-        .m_req_1(local_sq_rd_card),
-        .aclk(aclk),
-        .aresetn(aresetn)
-    );
-
-    req_mux_stream_1_2 inst_stream_mux_wr (
-        .s_req(local_sq_wr),
-        .m_req_0(local_sq_wr_host),
-        .m_req_1(local_sq_wr_card),
-        .aclk(aclk),
-        .aresetn(aresetn)
-    );
-
     local_credits_host_rd #(
         .N_DESTS(N_STRM_AXI)
     ) inst_local_credits_host_rd (
@@ -804,9 +877,6 @@ module design_user_wrapper_{{ c_reg }} (
     );
 
 {% elif cnfg.en_strm %}
-    `META_ASSIGN(local_sq_rd, local_sq_rd_host)
-    `META_ASSIGN(local_sq_wr, local_sq_wr_host)
-
     local_credits_host_rd #(
         .N_DESTS(N_STRM_AXI)
     ) inst_local_credits_host_rd (
@@ -833,9 +903,6 @@ module design_user_wrapper_{{ c_reg }} (
     `META_ASSIGN(local_cred_wr_host, bpss_wr_req_int)
 
 {% elif cnfg.en_mem %}
-    `META_ASSIGN(local_sq_rd, local_sq_rd_card)
-    `META_ASSIGN(local_sq_wr, local_sq_wr_card)
-
     local_credits_card_rd #(
         .N_DESTS(N_CARD_AXI)
     ) inst_local_credits_card_rd (

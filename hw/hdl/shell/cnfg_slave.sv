@@ -39,7 +39,16 @@ module cnfg_slave #(
     AXI4L.s                      s_axi_ctrl,
 
     // Host request
-    metaIntf.m                  m_host_sq,
+    // Host requests, one command queue per stream
+`ifdef EN_STRM
+    metaIntf.m                  m_host_sq_host,
+`endif
+`ifdef EN_MEM
+    metaIntf.m                  m_host_sq_card,
+`endif
+`ifdef EN_NET
+    metaIntf.m                  m_host_sq_remote,
+`endif
     metaIntf.m                  m_bpss_done_rd,
     metaIntf.m                  m_bpss_done_wr,
 
@@ -164,8 +173,10 @@ logic [STRM_BITS-1:0] strm_C;
 logic [NOTIFY_BITS-1:0] value_C;
 logic pwr_C;
 
-// Queue used
-logic [31:0] local_queue_used;
+// Queue used, per stream
+logic [31:0] host_queue_used;
+logic [31:0] card_queue_used;
+logic [31:0] remote_queue_used;
 
 // Completion read
 metaIntf #(.STYPE(ack_t)) meta_done_rd (.*);
@@ -795,7 +806,8 @@ always_ff @(posedge aclk) begin
 
       case (axi_araddr[ADDR_LSB+:ADDR_MSB]) inside
         CTRL_REG:
-            axi_rdata[31:0] <= local_queue_used[31:0];
+            // Occupancy of the command queues: [7:0] host, [15:8] card, [23:16] remote
+            axi_rdata[31:0] <= {8'd0, remote_queue_used[7:0], card_queue_used[7:0], host_queue_used[7:0]};
         VADDR_RD_REG: // Virtual address read
           axi_rdata[VADDR_BITS-1:0] <= slv_reg[VADDR_RD_REG][VADDR_BITS-1:0];
         CTRL_REG_2: // Length read
@@ -1203,18 +1215,125 @@ assign host_req.data.req_2.rsrvd        = 0;
 
 assign host_req.valid = local_post || remote_post;
 
-// Command queues
-axis_data_fifo_req_256_used inst_cmd_queue (
+// Command queues, one per stream
+// A command that waits for the credits of its stream must not block the commands of the other
+// streams, e.g., a host stream write of one cThread that waits for its data must not block a card
+// stream write of another cThread. Therefore, the commands are split by stream before they are
+// queued. As in the user wrapper, host stream commands go to the host queue and all other local
+// commands to the card queue. A local command that reads from one stream and writes to the other is
+// split into one command per queue. Remote commands have their own queue.
+// The software throttles the commands per queue, so the queues do not overflow.
+metaIntf #(.STYPE(dreq_t)) host_req_host (.*);
+metaIntf #(.STYPE(dreq_t)) host_req_card (.*);
+metaIntf #(.STYPE(dreq_t)) host_req_remote (.*);
+
+logic post_remote;
+logic rd_card, wr_card;
+
+`ifdef EN_NET
+assign post_remote = remote_post;
+`else
+assign post_remote = 1'b0;
+`endif
+
+`ifdef EN_STRM
+`ifdef EN_MEM
+assign rd_card = host_req.data.req_1.strm != STRM_HOST;
+assign wr_card = host_req.data.req_2.strm != STRM_HOST;
+`else
+assign rd_card = 1'b0;
+assign wr_card = 1'b0;
+`endif
+`else
+assign rd_card = 1'b1;
+assign wr_card = 1'b1;
+`endif
+
+always_comb begin
+    host_req_host.valid = 1'b0;
+    host_req_card.valid = 1'b0;
+    host_req_remote.valid = 1'b0;
+
+    host_req_host.data = host_req.data;
+    host_req_card.data = host_req.data;
+    host_req_remote.data = host_req.data;
+
+    if(post_remote) begin
+        host_req_remote.valid = 1'b1;
+    end
+    else if(host_req.valid) begin
+        if(host_req.data.req_1.actv & host_req.data.req_2.actv & (rd_card != wr_card)) begin
+            // Read and write on different streams; each queue gets its half
+            host_req_host.valid = 1'b1;
+            host_req_card.valid = 1'b1;
+
+            if(rd_card) begin
+                host_req_host.data.req_1 = 0;
+                host_req_card.data.req_2 = 0;
+            end
+            else begin
+                host_req_host.data.req_2 = 0;
+                host_req_card.data.req_1 = 0;
+            end
+        end
+        else if(host_req.data.req_1.actv ? rd_card : wr_card) begin
+            host_req_card.valid = 1'b1;
+        end
+        else begin
+            host_req_host.valid = 1'b1;
+        end
+    end
+end
+
+assign host_req.ready = 1'b1;
+
+`ifdef EN_STRM
+axis_data_fifo_req_256_used inst_cmd_queue_host (
   .s_axis_aresetn(aresetn),
   .s_axis_aclk(aclk),
-  .s_axis_tvalid(host_req.valid),
-  .s_axis_tready(host_req.ready),
-  .s_axis_tdata (host_req.data),
-  .m_axis_tvalid(m_host_sq.valid),
-  .m_axis_tready(m_host_sq.ready),
-  .m_axis_tdata (m_host_sq.data),
-  .axis_wr_data_count(local_queue_used)
+  .s_axis_tvalid(host_req_host.valid),
+  .s_axis_tready(host_req_host.ready),
+  .s_axis_tdata (host_req_host.data),
+  .m_axis_tvalid(m_host_sq_host.valid),
+  .m_axis_tready(m_host_sq_host.ready),
+  .m_axis_tdata (m_host_sq_host.data),
+  .axis_wr_data_count(host_queue_used)
 );
+`else
+assign host_queue_used = 0;
+`endif
+
+`ifdef EN_MEM
+axis_data_fifo_req_256_used inst_cmd_queue_card (
+  .s_axis_aresetn(aresetn),
+  .s_axis_aclk(aclk),
+  .s_axis_tvalid(host_req_card.valid),
+  .s_axis_tready(host_req_card.ready),
+  .s_axis_tdata (host_req_card.data),
+  .m_axis_tvalid(m_host_sq_card.valid),
+  .m_axis_tready(m_host_sq_card.ready),
+  .m_axis_tdata (m_host_sq_card.data),
+  .axis_wr_data_count(card_queue_used)
+);
+`else
+assign card_queue_used = 0;
+`endif
+
+`ifdef EN_NET
+axis_data_fifo_req_256_used inst_cmd_queue_remote (
+  .s_axis_aresetn(aresetn),
+  .s_axis_aclk(aclk),
+  .s_axis_tvalid(host_req_remote.valid),
+  .s_axis_tready(host_req_remote.ready),
+  .s_axis_tdata (host_req_remote.data),
+  .m_axis_tvalid(m_host_sq_remote.valid),
+  .m_axis_tready(m_host_sq_remote.ready),
+  .m_axis_tdata (m_host_sq_remote.data),
+  .axis_wr_data_count(remote_queue_used)
+);
+`else
+assign remote_queue_used = 0;
+`endif
 
 // ---------------------------------------------------------------------------------------- 
 // MEMORY
