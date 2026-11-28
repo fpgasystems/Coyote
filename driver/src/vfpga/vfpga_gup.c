@@ -27,7 +27,8 @@ struct hlist_head user_buff_map[MAX_N_REGIONS][N_CTID_MAX][1 << (USER_HASH_TABLE
 /*
  * Translates the memory block requested by the user (mem_block, -1 if none) into the memory block
  * on the card (target_block, -1 if any block can be used).
- * Returns 0 on success, -EINVAL if the shell requires a memory block but none was requested.
+ * Returns 0 on success, -EINVAL if the requested memory block is out of range or the shell
+ * requires a memory block but none was requested.
  */
 static int get_card_target_block(struct vfpga_dev *device, int32_t mem_block, int32_t *target_block) {
     #ifdef PLATFORM_ULTRASCALE_PLUS
@@ -41,6 +42,12 @@ static int get_card_target_block(struct vfpga_dev *device, int32_t mem_block, in
     #endif
 
     #ifdef PLATFORM_VERSAL
+    // Each vFPGA can only use its own memory blocks
+    if (mem_block < -1 || mem_block >= device->bd_data->n_card_axi) {
+        pr_warn("invalid memory block %d, must be -1 or in [0, %d)\n", mem_block, device->bd_data->n_card_axi);
+        return -EINVAL;
+    }
+
     if (device->bd_data->en_block_mem) {
         if (mem_block != -1) {
             // User specified memory block; realign to current vFPGA (i.e. HBM_AXI_%d)

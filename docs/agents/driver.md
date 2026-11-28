@@ -112,7 +112,7 @@ Platform split ([UltraScale+ vs Versal summary](coyote_top.md#ultrascale-vs-vers
 | 2 | `UNREGISTER_CTID` | `[0]=ctid` | `tlb_put_user_pages_ctid` -> unmap TLB, free card mem, unpin; return ctid to free list |
 | 3 | `REGISTER_EVENTFD` | `[0]=ctid,[1]=efd` | `vfpga_register_eventfd` ([vfpga_uisr.c](../../driver/src/vfpga/vfpga_uisr.c)); resets a stale pending notification; see [User interrupts](#user-interrupts) |
 | 4 | `UNREGISTER_EVENTFD` | `[0]=ctid` | `vfpga_unregister_eventfd` |
-| 5 | `MAP_USER_MEM` | `[0]=vaddr,[1]=len,[2]=ctid,[3]=mem_block(-1=any)` | `mmu_lock`; `change_tlb_lock`; `mmu_handler_gup(..., stream=true)`; TLB regs + card allocator; returns 0/99/err |
+| 5 | `MAP_USER_MEM` | `[0]=vaddr,[1]=len,[2]=ctid,[3]=mem_block(-1=any),[4]=lazy_card_alloc` | `mmu_lock`; `change_tlb_lock`; `mmu_handler_gup(..., stream=true)`; TLB regs + card allocator (skipped if lazy); returns 0/99/err |
 | 6 | `UNMAP_USER_MEM` | `[0]=vaddr,[1]=ctid` | `tlb_put_user_pages` -> TLB unmap + invalidate (waits for `IRQ_INVLDT`) |
 | 7 | `MAP_DMABUF` | `[0]=dmabuf fd,[1]=vaddr,[2]=ctid,[3]=mem_block` | `p2p_attach_dma_buf`; kernel >= 6.2 |
 | 8 | `UNMAP_DMABUF` | `[0]=vaddr,[1]=ctid` | `p2p_detach_dma_buf`; driver comment says "fd" but the code (and SW, `cThread::userUnmap` in [cThread.cpp](../../sw/src/cThread.cpp)) use the vaddr |
@@ -160,7 +160,7 @@ All in [coyote_defs.h](../../driver/include/coyote_defs.h).
 | `vfpga_dev` | One per vFPGA (array of `n_fpga_reg`); `cdev`, `id`, `ref_cnt`, ioremaps (`fpga_lTlb`, `fpga_sTlb`, `cnfg_regs`), writeback buffer, ctid allocator (`ctid_chunks`, `pid_alloc`, `pid_array[ctid]=hpid`), locks, workqueues, waitqueues + `wait_*` atomics |
 | `reconfig_dev` | One per card; `cdev`, `rcnfg_lock` and `mem_lock` (mutexes), `irq_lock`, `waitqueue_rcnfg`/`wait_rcnfg`, `curr_buff` (staging for alloc->mmap handoff), `curr_buff_owner` (file that allocated it), `shell_removed`, `rcnfg_timed_out`, `stalled_buff` |
 | `tlb_metadata` | Page/key/tag/phys geometry for the small and large TLB; built from `ctrl_cnfg` in `read_shell_config` |
-| `user_pages` | One mapped buffer: `vaddr` (**in 4 KB page numbers**, not bytes), `n_pages` (4 KB units even for huge), `huge`, `host` (1 = data currently on host, 0 = on card), `pages[]` (pinned), `hpages[]` (DMA addrs), `cpages[]` (card addrs), dmabuf fields (`buf`, `dma_attach`, `sgt`), `needs_explicit_sync` |
+| `user_pages` | One mapped buffer: `vaddr` (**in 4 KB page numbers**, not bytes), `n_pages` (4 KB units even for huge), `huge`, `host` (1 = data currently on host, 0 = on card), `pages[]` (pinned), `hpages[]` (DMA addrs), `cpages[]` (card addrs; NULL without card memory or, if lazy, until the first migration to the card), `mem_block` (user block, kept for lazy allocation), dmabuf fields (`buf`, `dma_attach`, `sgt`), `needs_explicit_sync` |
 | `pf_aligned_desc` | Page-fault window after alignment to TLB page size |
 | `vfpga_irq_pfault` / `vfpga_irq_notify` | `kzalloc(GFP_ATOMIC)` in ISR, carries decoded ISR regs + `work_struct`; freed by worker |
 | `memory_partition` + `chunk` | Card-memory allocator state (circular linked chunk array, `alloc` cursor, `free_chunks`) |
@@ -239,7 +239,7 @@ Changing a register in RTL requires the matching struct edit here and the `CnfgA
   - `tlb_map_gup` maps at most `MAX_N_MAP_PAGES`=256 entries per fault; HW re-faults for the rest. For regular pages it coalesces runs of `n_pages_in_huge` physically contiguous, 2 MB-aligned pages into one large-TLB entry.
 - Unmap/invalidate: `tlb_unmap_gup` writes invalid entries, then `invalidate_tlb_entry` per (huge) page (last one carries `...INVLDT_LAST`), then waits uninterruptibly for `IRQ_INVLDT` (`wait_event_timeout`, `CYT_INVLDT_TIMEOUT_MS`=1000). On `-ETIMEDOUT` callers leak the entry pinned and mapped (the FPGA may still reach it) instead of releasing it. Used by `UNMAP_USER_MEM`, migrations, ctid teardown.
 - `change_tlb_lock` (writes `isr_ctrl = 0x50`, an invalidation command with the lock bit) brackets MAP/UNMAP/DMABUF/OFFLOAD/SYNC ioctls (called twice: lock, unlock) so the MMU is quiesced while the driver writes TLB entries; exact HW semantics in [services/mmu.md](services/mmu.md).
-- Explicit migration: `IOCTL_OFFLOAD_REQ` / `SYNC_REQ` -> `offload_user_pages`/`sync_user_pages` -> unmap, flip `user_pg->host`, `migrate_to_{card,host}` (`offload_lock`/`sync_lock`, `trigger_dma_{offload,sync}`: per-page `offl_host_offs/card_offs/ctrl` writes with `DMA_THRSH`=32 outstanding), remap. `migrate_to_{card,host}` wait at most `CYT_DMA_TIMEOUT_MS`=5000 (warn only); the `trigger_dma_*` poll is bounded by `CYT_POLL_TIMEOUT_MS`=2000.
+- Explicit migration: `IOCTL_OFFLOAD_REQ` / `SYNC_REQ` -> `offload_user_pages`/`sync_user_pages` -> (offload: `alloc_user_card_pages` if lazy; sync: skip buffers not on the card) unmap, flip `user_pg->host`, `migrate_to_{card,host}` (`offload_lock`/`sync_lock`, `trigger_dma_{offload,sync}`: per-page `offl_host_offs/card_offs/ctrl` writes with `DMA_THRSH`=32 outstanding), remap. `migrate_to_{card,host}` wait at most `CYT_DMA_TIMEOUT_MS`=5000 (warn only); the `trigger_dma_*` poll is bounded by `CYT_POLL_TIMEOUT_MS`=2000.
 - SW: `cThread::userMap/userUnmap/getMem/invoke(syncSg)` -> [software.md#mmu-and-page-faults](software.md#mmu-and-page-faults).
 
 ## Card memory
@@ -254,8 +254,8 @@ Changing a register in RTL requires the matching struct edit here and the `CnfgA
 | chunks per partition (small / large) | 1 Mi / 1 Mi (4 GB each) | 64 Ki / 64 Ki (256 MB each) |
 | `MEM_BLOCK_SIZE` | unused | 512 MB |
 
-- Address = `(chunk_id << 12) + (card_reg_offs=0 | card_huge_offs=N_SMALL_CHUNKS*4KB) + block*MEM_BLOCK_SIZE + MEM_START` (`alloc_card_memory` in [vfpga_hw.c](../../driver/src/vfpga/vfpga_hw.c)). Huge-page buffers are also allocated as 4 KB chunks (n_pages is always in 4 KB units). **No alignment/contiguity guarantee**: allocation walks `alloc->next` without checking `used` and `free_card_memory` moves the cursor to the freed chunk (MEM-01), so 2 MB-aligned contiguous runs needed for large-TLB coalescing are not guaranteed.
-- `mem_block` (ioctl arg `[3]`, `CoyoteAlloc.mem_block`): ignored on US+. Versal: `en_block_mem` => required; remapped `target = DIV_ROUND_CLOSEST(N_MEM_BLOCKS*(vfid*n_card_axi+mem_block+1), n_regions*n_card_axi+1) - 1` (mirrors the PC spacing in `cr_hbm.tcl`); unified mode allows `-1` (first partition with free chunks).
+- Address = `(chunk_id << 12) + (card_reg_offs=0 | card_huge_offs=N_SMALL_CHUNKS*4KB) + block*MEM_BLOCK_SIZE + MEM_START` (`alloc_card_memory` in [vfpga_hw.c](../../driver/src/vfpga/vfpga_hw.c)). Huge-page buffers are also allocated as 4 KB chunks (n_pages is always in 4 KB units). The block search and allocation run under `card_lock`; allocation walks the chunk ring from `alloc`, skipping used chunks, and `free_card_memory` moves `alloc` back to the first freed chunk.
+- `mem_block` (ioctl arg `[3]`, `CoyoteAlloc.mem_block`): ignored on US+. Versal: must be `-1` or in `[0, n_card_axi)` (`get_card_target_block`, checked at map time); `en_block_mem` => required; remapped `target = DIV_ROUND_CLOSEST(N_MEM_BLOCKS*(vfid*n_card_axi+mem_block+1), n_regions*n_card_axi+1) - 1` (mirrors the PC spacing in `cr_hbm.tcl`); unified mode allows `-1` (first partition with free chunks).
 - Guard: `card_lock` spinlock.
 - SW: `CoyoteAlloc.mem_block`, `LOCAL_OFFLOAD/LOCAL_SYNC`, `STRM_CARD` -> [software.md#card-memory](software.md#card-memory).
 
@@ -323,7 +323,7 @@ Completion waits use waitqueue + atomic flag (`wait_offload|sync|invldt|rcnfg`),
 - `en_avx` is decided by the shell build; SW `EN_AVX` only selects which region SW maps and how it writes (see commit 97b26119, [software.md](software.md)).
 - Max 64 cThreads per vFPGA (`N_CTID_MAX`, 6-bit PID field), max 16 vFPGAs (`MAX_N_REGIONS`), 15 with the PR IRQ on vector 15. Small page size must equal the kernel `PAGE_SIZE` (`BUG_ON`).
 
-Known defects in this area: [known_issues.md](known_issues.md) (`STA-*`, `REC-*`, `DRV-*`, `MEM-01`, `MEM-03`, `MEM-04`, `MEM-11`, `MMU-02`, `MMU-05`).
+Known defects in this area: [known_issues.md](known_issues.md) (`STA-*`, `REC-*`, `DRV-*`, `MEM-11`, `MMU-02`, `MMU-05`).
 
 Also: thesis/paper v1 describe a US+-only XDMA driver with ECI and HMM; the live driver adds Versal/QDMA, card-memory blocks and dmabuf, and has no HMM.
 

@@ -285,6 +285,7 @@ protected:
 	 * @param sg Scatter-gather entry, specifying the memory address and length for the operation
 	 *
 	 * @note Syncs and off-loads are blocking (synchronous) by design
+	 * @note LOCAL_SYNC skips buffers that are not on the card (never off-loaded or already migrated back to the host)
 	 */
 	void invoke(CoyoteOper oper, syncSg sg);
 
