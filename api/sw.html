@@ -264,6 +264,8 @@
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread10munmapFpgaEv"><code class="docutils literal notranslate"><span class="pre">munmapFpga()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread11releaseConnEv"><code class="docutils literal notranslate"><span class="pre">releaseConn()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7postCmdE8uint64_t8uint64_t8uint64_t8uint64_t"><code class="docutils literal notranslate"><span class="pre">postCmd()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4NK6coyote7cThread13localCmdQueueE8uint64_t"><code class="docutils literal notranslate"><span class="pre">localCmdQueue()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread17readCmdQueuesUsedEv"><code class="docutils literal notranslate"><span class="pre">readCmdQueuesUsed()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7sendAckE8uint32_t"><code class="docutils literal notranslate"><span class="pre">sendAck()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7readAckEv"><code class="docutils literal notranslate"><span class="pre">readAck()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread2fdE"><code class="docutils literal notranslate"><span class="pre">fd</span></code></a></li>
@@ -2110,7 +2112,7 @@ TODO:<ul class="simple">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread7postCmdE8uint64_t8uint64_t8uint64_t8uint64_t">
 <span id="_CPPv3N6coyote7cThread7postCmdE8uint64_t8uint64_t8uint64_t8uint64_t"></span><span id="_CPPv2N6coyote7cThread7postCmdE8uint64_t8uint64_t8uint64_t8uint64_t"></span><span id="coyote::cThread::postCmd__uint64_t.uint64_t.uint64_t.uint64_t"></span><span class="target" id="classcoyote_1_1cThread_1a94817964cb17c47a95080461a104c6e7"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">postCmd</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offs_3</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offs_2</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offs_1</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offs_0</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread7postCmdE8uint64_t8uint64_t8uint64_t8uint64_t" title="Link to this definition"></a><br /></dt>
 <dd><p>Posts a DMA command to the vFPGA. </p>
-<p>This function triggers a DMA command by writing the provided offsets to the appropriate control registers. </p>
+<p>This function triggers a DMA command by writing the provided offsets to the appropriate control registers. The shell queues the commands per stream (host, card, remote), so the outstanding commands are throttled per command queue: a full queue of one stream does not stop commands of the other streams. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -2121,6 +2123,18 @@ TODO:<ul class="simple">
 </ul>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK6coyote7cThread13localCmdQueueE8uint64_t">
+<span id="_CPPv3NK6coyote7cThread13localCmdQueueE8uint64_t"></span><span id="_CPPv2NK6coyote7cThread13localCmdQueueE8uint64_t"></span><span id="coyote::cThread::localCmdQueue__uint64_tC"></span><span class="target" id="classcoyote_1_1cThread_1a169a67f0d0f1a1dd7aa50fc632953b86"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">localCmdQueue</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">strm</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK6coyote7cThread13localCmdQueueE8uint64_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns the command queue (CMD_QUEUE_HOST or CMD_QUEUE_CARD) of a local command on the given stream, as selected by the shell. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread17readCmdQueuesUsedEv">
+<span id="_CPPv3N6coyote7cThread17readCmdQueuesUsedEv"></span><span id="_CPPv2N6coyote7cThread17readCmdQueuesUsedEv"></span><span id="coyote::cThread::readCmdQueuesUsed"></span><span class="target" id="classcoyote_1_1cThread_1a6d25947d5142976f6353e8b8d3284f74"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">readCmdQueuesUsed</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread17readCmdQueuesUsedEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Reads the occupancy of all command queues of the vFPGA into cmd_cnt. </p>
 </dd></dl>
 
 <dl class="cpp function">
@@ -2194,8 +2208,8 @@ TODO:<ul class="simple">
 
 <dl class="cpp var">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread7cmd_cntE">
-<span id="_CPPv3N6coyote7cThread7cmd_cntE"></span><span id="_CPPv2N6coyote7cThread7cmd_cntE"></span><span id="coyote::cThread::cmd_cnt__uint32_t"></span><span class="target" id="classcoyote_1_1cThread_1a8e4f28ba23f7d76123a5ad0b27b31310"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cmd_cnt</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N6coyote7cThread7cmd_cntE" title="Link to this definition"></a><br /></dt>
-<dd><p>Number data transfer commands sent to the vFPGA. </p>
+<span id="_CPPv3N6coyote7cThread7cmd_cntE"></span><span id="_CPPv2N6coyote7cThread7cmd_cntE"></span><span id="coyote::cThread::cmd_cnt__uint32_tA"></span><span class="target" id="classcoyote_1_1cThread_1ab19f0d93b0cdf5bf2564faeb28cf615f"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cmd_cnt</span></span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">N_CMD_QUEUES</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N6coyote7cThread7cmd_cntE" title="Link to this definition"></a><br /></dt>
+<dd><p>Number of data transfer commands sent to each command queue of the vFPGA, see CMD_QUEUE_*. </p>
 </dd></dl>
 
 <dl class="cpp var">
