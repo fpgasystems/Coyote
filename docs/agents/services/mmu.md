@@ -214,7 +214,7 @@ cThread::getMem({CoyoteAllocType::GPU,size,false,gpu_id}) -> hipMalloc | cuMemAl
 userMap [cThread.cpp]: EN_ROCM: hipPointerGetAttributes==device ; EN_CUDA: cuPointerGetAttribute==DEVICE
    -> export dma-buf fd (hsa_amd_portable_export_dmabuf | cuMemGetHandleForAddressRange DMA_BUF_FD)
    -> ioctl IOCTL_MAP_DMABUF {fd, vaddr, ctid, mem_block}   (ROCm passes vaddr-offset; the driver page-aligns anyway)
- else (host ptr) -> IOCTL_MAP_USER_MEM {vaddr,len,ctid,mem_block}
+ else (host ptr) -> IOCTL_MAP_USER_MEM {vaddr,len,ctid,mem_block,lazy_card_alloc}
 driver p2p_attach_dma_buf [vfpga_gup.c]: dma_buf_dynamic_attach(allow_peer2peer, move_notify=p2p_move_notify)
    dma_buf_map_attachment -> sgt -> bus addrs in hpages[] ; alloc card pages if en_mem ; map in user_buff_map ; tlb_map_gup
 GPU access = STRM_HOST stream (PCIe P2P through host DMA); TLB entry phys = GPU bus address
@@ -229,7 +229,7 @@ Auto-detection: `userMap` works on any pointer; only `getMem(GPU)` allocates GPU
 
 | SW API | ioctl (`_IOW('F',n)`, args in `uint64_t tmp[MAX_USER_ARGS]`) | Driver function | HW write / effect | RTL |
 |---|---|---|---|---|
-| `getMem(REG/THP/HPF)` -> `userMap` | `IOCTL_MAP_USER_MEM` (5): `{vaddr,len,ctid,mem_block}` -> returns 99 on needs-sync | [vfpga_dev_ioctl](../../../driver/src/vfpga/vfpga_ops.c) -> `mmu_handler_gup(stream=1)` | lock; TLB writes `fpga_sTlb/lTlb[0..1]`; unlock | `tlb_slave_axil` -> `tlb_controller`; `tlb_fsm` ST_LOCKED |
+| `getMem(REG/THP/HPF)` -> `userMap` | `IOCTL_MAP_USER_MEM` (5): `{vaddr,len,ctid,mem_block,lazy_card_alloc}` -> returns 99 on needs-sync | [vfpga_dev_ioctl](../../../driver/src/vfpga/vfpga_ops.c) -> `mmu_handler_gup(stream=1)` | lock; TLB writes `fpga_sTlb/lTlb[0..1]`; unlock | `tlb_slave_axil` -> `tlb_controller`; `tlb_fsm` ST_LOCKED |
 | `getMem(GPU)` / `userMap` on GPU ptr | `IOCTL_MAP_DMABUF` (7): `{fd,vaddr,ctid,mem_block}` | `p2p_attach_dma_buf` | same | same |
 | `freeMem` -> `userUnmap` | `IOCTL_UNMAP_USER_MEM` (6): `{vaddr,ctid}` / `IOCTL_UNMAP_DMABUF` (8): `{vaddr,ctid}` | `tlb_put_user_pages` / `p2p_detach_dma_buf` -> `tlb_unmap_gup` | TLB `valid=0` writes + `isr_ctrl` INVLDT[_LAST] | `tlb_controller` remove; `tlb_fsm` INVLDT drain |
 | `invoke(LOCAL_OFFLOAD, syncSg)` | `IOCTL_OFFLOAD_REQ` (9): `{vaddr,len,ctid}` | `offload_user_pages` -> `migrate_to_card` | `offl_host_offs/offl_card_offs/offl_ctrl` | `cnfg_slave` -> `mmu_arbiter_isr(RDWR=0)` |

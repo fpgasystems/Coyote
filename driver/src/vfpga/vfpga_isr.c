@@ -198,9 +198,10 @@ void vfpga_pfault_handler(struct work_struct *work) {
         else
     #else
         // Alternative memory management, via the get_user_pages mechanism (default)
-        // Target block doesn't matter for page faults - when a page fault occurs, the card memory would
-        // have already been allocated (?)
-        ret_val = mmu_handler_gup(device, irq_pf->vaddr, irq_pf->len, irq_pf->ctid, irq_pf->stream, hpid, -1);
+        // Target block doesn't matter for page faults - if the card memory of a mapped buffer is allocated
+        // on a page fault, it uses the memory block the buffer was mapped with
+        // Buffers that are first mapped on a page fault allocate their card memory eagerly
+        ret_val = mmu_handler_gup(device, irq_pf->vaddr, irq_pf->len, irq_pf->ctid, irq_pf->stream, hpid, -1, false);
     #endif
 
     if (ret_val && ret_val != BUFF_NEEDS_EXP_SYNC_RET_CODE) {

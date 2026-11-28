@@ -61,9 +61,10 @@
  * @param stream Access type: HOST (1) or CARD (0)
  * @param hpid Host process ID
  * @param mem_block Target memory block for card memory; only applicable to Versal devices
+ * @param lazy_card_alloc If the buffer is not mapped yet, only allocate its card memory once it is migrated to the card
  * @return 0 on success, negative error code on failure
  */
-int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int32_t ctid, int32_t stream, pid_t hpid, int32_t mem_block);
+int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int32_t ctid, int32_t stream, pid_t hpid, int32_t mem_block, bool lazy_card_alloc);
 
 /**
  * @brief Checks if a mapping is already present in the user buffer map
@@ -103,7 +104,8 @@ int tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hp
  *  - Allocates a new user_pages struct which holds informaton about page physical address, length etc.,
  *  - Pins the pages, to avoid them being swapped out
  *  - Flushes the cache to ensure data consistency between the FPGA and the CPU
- *  - Allocates the corresponding card buffer, if memory is enabled
+ *  - Allocates the corresponding card buffer, if memory is enabled. With lazy_card_alloc, the card buffer is only
+ *    allocated once the pages are migrated to the card
  * This function is immediately followed by a call to tlb_map_gup, which maps the user pages to the vFPGA's TLB
  * 
  * @param device vFPGA char device
@@ -112,9 +114,10 @@ int tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hp
  * @param curr_task Current task structure
  * @param curr_mm Current memory management structure
  * @param mem_block Target memory block for card memory; only applicable to Versal devices
+ * @param lazy_card_alloc Only allocate the card memory once the pages are migrated to the card
  * @return Pointer to the user_pages structure on success, NULL on failure
  */
-struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, pid_t hpid, struct task_struct *curr_task, struct mm_struct *curr_mm, int32_t mem_block);
+struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, pid_t hpid, struct task_struct *curr_task, struct mm_struct *curr_mm, int32_t mem_block, bool lazy_card_alloc);
 
 /**
  * @brief Releases user pages and removes their TLB mappings.
@@ -158,6 +161,8 @@ void migrate_to_host(struct vfpga_dev *device, struct user_pages *user_pg);
 /**
  * @brief Trigger off-load operation; moving pages from host to card & updating mappings
  *
+ * Allocates the card memory of lazily allocated buffers that were never on the card before.
+ *
  * @param device vFPGA char device
  * @param vaddr Starting virtual address of the buffer to be offloaded
  * @param len Length, in bytes, of the buffer to be offloaded
@@ -168,6 +173,9 @@ int offload_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, i
 
 /**
  * @brief Trigger sync operation; moving pages from card to host & updating mappings
+ *
+ * Buffers that do not currently reside on the card (e.g., lazily allocated buffers that were never
+ * off-loaded or buffers that were already migrated back to the host) are skipped.
  *
  * @param device vFPGA char device
  * @param vaddr Starting virtual address of the buffer to be synced

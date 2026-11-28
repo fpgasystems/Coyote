@@ -125,7 +125,7 @@ Output ops: `GET_CSR=0 (u64)`, `HOST_WRITE=1 (vaddr u64, len u64, data)`, `IRQ=2
 | Feature | Sim behavior |
 |---|---|
 | `getMem(CoyoteAlloc)` REG/THP/HPF | Allocates host memory (aligned_alloc / posix_memalign / mmap hugetlb), calls `userMap`, then writes byte 0 (SIM-07). Other `CoyoteAllocType` (e.g. GPU) -> FATAL. `alloc.remote` -> assert |
-| `userMap/userUnmap` | Sends USER_MAP/USER_UNMAP; `mem_block != -1` ignored with warning. Memory passed to `invoke()` that was not mapped is auto-mapped page-aligned (emulated page fault, `handlePageFaults`; `userMap` replaces such mappings); DUT-originated accesses (`sq_*`) to unmapped memory are still `$fatal` |
+| `userMap/userUnmap` | Sends USER_MAP/USER_UNMAP; `mem_block != -1` ignored with warning; `lazy_card_alloc` ignored. Memory passed to `invoke()` that was not mapped is auto-mapped page-aligned (emulated page fault, `handlePageFaults`; `userMap` replaces such mappings); DUT-originated accesses (`sq_*`) to unmapped memory are still `$fatal` |
 | `freeMem` | userUnmap + free/munmap |
 | `setCSR/getCSR` | Wire offset = `offs * 8`; blocking getCSR via `csr_queue` |
 | `invoke(LOCAL_READ)` | **Copies `sg.len` bytes from `sg.addr` to the sim** (`MEM_WRITE`) then INVOKE LOCAL_READ -> data snapshot at invoke time |

@@ -137,6 +137,10 @@ struct CoyoteAlloc {
     /// TODO: Add a pointer to some docs, once available
     int32_t mem_block = { -1 };
 
+    /// Only allocate card memory once the buffer is migrated to the card, instead of when it is mapped.
+    /// Allows mapping more host memory than there is card memory. See cThread::userMap for the caveats
+    bool lazy_card_alloc = { false };
+
     /// Pointer to the allocated memory; the struct keeps track of it so that it can be freed automatically after use
     void *mem = { nullptr };
 

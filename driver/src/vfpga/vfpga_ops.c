@@ -312,9 +312,10 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
             break;
         
         // Explicit mapping of user pages; will map the user pages into the vFPGA's TLB and set-up corresponding card buffers, if enabled
-        // Args: Virtual address, length, Coyote thread ID (ctid), target memory block (applicable only to Versal devices)
+        // With lazy card allocation, card buffers are only allocated once the pages are migrated to the card
+        // Args: Virtual address, length, Coyote thread ID (ctid), target memory block (applicable only to Versal devices), lazy card allocation
         case IOCTL_MAP_USER_MEM:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 4 * sizeof(unsigned long));
+            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 5 * sizeof(unsigned long));
             if (ret_val != 0) {
                 pr_warn("user data could not be coppied, return %d\n", ret_val);
             } else {
@@ -332,7 +333,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     else
                 #endif
                     int32_t mem_block = (int32_t) tmp[3];           
-                    ret_val = mmu_handler_gup(device, tmp[0], tmp[1], ctid, true, hpid, mem_block);
+                    ret_val = mmu_handler_gup(device, tmp[0], tmp[1], ctid, true, hpid, mem_block, (bool) tmp[4]);
                 
                 if (ret_val && ret_val != BUFF_NEEDS_EXP_SYNC_RET_CODE) {
                     dbg_info("buffer could not be mapped, ret_val: %d\n", ret_val);

@@ -223,12 +223,21 @@ protected:
 	 * query APIs. GPU memory is registered via IOCTL_MAP_DMABUF (the dmabuf is exported internally);
 	 * all other memory uses IOCTL_MAP_USER_MEM. The dmabuf fd is stored internally and released by userUnmap.
 	 *
+	 * If the shell has card memory, the corresponding card memory is allocated when the buffer is mapped and
+	 * this function throws if there is not enough card memory left. With lazy_card_alloc, host memory only
+	 * gets card memory once it is migrated to the card, i.e., on a LOCAL_OFFLOAD or on a page fault from a
+	 * card stream. This allows mapping more host memory than there is card memory. However, only LOCAL_OFFLOAD
+	 * reports running out of card memory (by throwing). On a page fault, the request is dropped and the
+	 * corresponding invoke never completes, with only an error in dmesg. Therefore, lazily allocated buffers
+	 * should be off-loaded with LOCAL_OFFLOAD before they are accessed from a card stream.
+	 *
 	 * @param vaddr Virtual address of the buffer
 	 * @param len Length of the buffer, in bytes
 	 * @param mem_block What memory block to store this memory in; only applicable to Versal devices
 	 *		When -1, the driver picks the first PC with sufficient space
+	 * @param lazy_card_alloc Only allocate the card memory once the buffer is migrated to the card, ignored for GPU memory
 	 */
-	void userMap(void *vaddr, uint64_t len, int32_t mem_block = -1);
+	void userMap(void *vaddr, uint64_t len, int32_t mem_block = -1, bool lazy_card_alloc = false);
 
 	/**
 	 * @brief Unmaps a buffer from the vFPGA's TLB.
@@ -242,6 +251,9 @@ protected:
 
 	/**
 	 * @brief Allocates memory for this cThread and maps it into the vFPGA's TLB
+	 *
+	 * Card memory is allocated as described in userMap. When alloc.lazy_card_alloc is set, running out of
+	 * card memory is only reported by LOCAL_OFFLOAD, so use it to reserve card memory before card accesses.
 	 *
 	 * @param alloc CoyoteAlloc object containing the allocation parameters, including size, type (e.g., hugepage, GPU) etc.
 	 * @return Pointer to the alocated memory
@@ -281,6 +293,7 @@ protected:
 	 * @param sg Scatter-gather entry, specifying the memory address and length for the operation
 	 *
 	 * @note Syncs and off-loads are blocking (synchronous) by design
+	 * @note LOCAL_SYNC skips buffers that are not on the card (never off-loaded or already migrated back to the host)
 	 */
 	void invoke(CoyoteOper oper, syncSg sg);
 

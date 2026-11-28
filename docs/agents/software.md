@@ -113,7 +113,7 @@ Members ([cThread.hpp](../../sw/include/coyote/cThread.hpp)): `fd`, `vfid`, `cti
 | `GPU` | `hipMalloc` / `cuMemAlloc` (EN_ROCM / EN_CUDA, else throws) | `userUnmap` + hipFree/cuMemFree |
 | `PRM` | not for `cThread`; used by `cRcnfg` | - |
 
-`userMap(vaddr,len,mem_block)`: if EN_ROCM/EN_CUDA and the pointer is device memory (CUDA detection via `cuPointerGetAttribute` needs an active CUDA context, `cThread::userMap` in [cThread.cpp](../../sw/src/cThread.cpp)) -> export dmabuf fd -> `IOCTL_MAP_DMABUF{fd, vaddr, ctid, mem_block}` (ROCm passes the page-aligned base), remember fd in `gpu_dmabuf_fds`; else `IOCTL_MAP_USER_MEM{vaddr,len,ctid,mem_block}`; return `99` -> warn only. `userUnmap` picks `UNMAP_DMABUF` vs `UNMAP_USER_MEM` by `gpu_dmabuf_fds` membership. Users may also `userMap` externally allocated memory (e.g. RDMA staging buffer passed to `initRDMA`).
+`userMap(vaddr,len,mem_block,lazy_card_alloc)`: if EN_ROCM/EN_CUDA and the pointer is device memory (CUDA detection via `cuPointerGetAttribute` needs an active CUDA context, `cThread::userMap` in [cThread.cpp](../../sw/src/cThread.cpp)) -> export dmabuf fd -> `IOCTL_MAP_DMABUF{fd, vaddr, ctid, mem_block}` (ROCm passes the page-aligned base), remember fd in `gpu_dmabuf_fds`; else `IOCTL_MAP_USER_MEM{vaddr,len,ctid,mem_block,lazy_card_alloc}`; return `99` -> warn only. With `lazy_card_alloc` (ignored for GPU memory), card memory is only allocated on the first `LOCAL_OFFLOAD` or card-stream page fault; only `LOCAL_OFFLOAD` reports running out of it, a page fault is dropped (the invoke hangs). `userUnmap` picks `UNMAP_DMABUF` vs `UNMAP_USER_MEM` by `gpu_dmabuf_fds` membership. Users may also `userMap` externally allocated memory (e.g. RDMA staging buffer passed to `initRDMA`).
 
 **RDMA/out-of-band** (`initRDMA`, `connSync`, `closeConn`, `writeQpContext`, `doArpLookup`; [cThread.cpp](../../sw/src/cThread.cpp)): see [Networking](#networking).
 
@@ -188,7 +188,7 @@ RTL: [services/mmu.md](services/mmu.md); driver: [driver.md#mmu-and-page-faults]
 
 | SW | Ioctl | Driver | Notes |
 |---|---|---|---|
-| `getMem(REG/THP/HPF)`, `userMap` | `MAP_USER_MEM{vaddr,len,ctid,mem_block}` | `mmu_handler_gup` -> pin + TLB write | pre-mapping avoids runtime faults; unmapped buffers are mapped lazily by the page-fault path when HW touches them |
+| `getMem(REG/THP/HPF)`, `userMap` | `MAP_USER_MEM{vaddr,len,ctid,mem_block,lazy_card_alloc}` | `mmu_handler_gup` -> pin + TLB write + card memory (unless lazy) | pre-mapping avoids runtime faults; unmapped buffers are mapped lazily by the page-fault path when HW touches them |
 | `userMap` on GPU pointer | `MAP_DMABUF{fd,vaddr,ctid,mem_block}` | `p2p_attach_dma_buf` | needs EN_CUDA/EN_ROCM + kernel >= 6.2 |
 | `userUnmap`, `freeMem` | `UNMAP_USER_MEM` / `UNMAP_DMABUF{vaddr,ctid}` | `tlb_put_user_pages`, `p2p_detach_dma_buf` | blocks on TLB invalidation IRQ |
 | `invoke(LOCAL_OFFLOAD/SYNC, syncSg)` | `OFFLOAD_REQ` / `SYNC_REQ` | `offload_user_pages` / `sync_user_pages` | host <-> card migration |
@@ -200,7 +200,8 @@ RTL: [services/memory.md](services/memory.md); driver: [driver.md#card-memory](d
 
 | SW | Ioctl / field | Driver | RTL path |
 |---|---|---|---|
-| `CoyoteAlloc.mem_block` (Versal HBM pseudo-channel selector; `-1` = any; ignored on US+) | `userMap` `tmp[3]` | `alloc_card_memory` ([vfpga_hw.c](../../driver/src/vfpga/vfpga_hw.c)), `mem_block` remap in `tlb_get_user_pages` | HBM/DDR ports per vFPGA |
+| `CoyoteAlloc.mem_block` (Versal HBM pseudo-channel selector; `-1` = any; ignored on US+) | `userMap` `tmp[3]` | `alloc_card_memory` ([vfpga_hw.c](../../driver/src/vfpga/vfpga_hw.c)), `mem_block` remap in `get_card_target_block` ([vfpga_gup.c](../../driver/src/vfpga/vfpga_gup.c)) | HBM/DDR ports per vFPGA |
+| `CoyoteAlloc.lazy_card_alloc` (allocate card memory on the first migration to the card; default `false`) | `userMap` `tmp[4]` | `alloc_user_card_pages` ([vfpga_gup.c](../../driver/src/vfpga/vfpga_gup.c)) | `LOCAL_OFFLOAD`, `STRM_CARD` |
 | `invoke(LOCAL_OFFLOAD/LOCAL_SYNC, syncSg)` | `OFFLOAD_REQ` / `SYNC_REQ` | `offload_user_pages` / `sync_user_pages` -> `trigger_dma_{offload,sync}` (`offl_*`/`sync_*` regs) | card DMA (`hw/hdl/cdma`) between host and card memory |
 | `localSg.stream = STRM_CARD` (0) in `invoke(LOCAL_READ/WRITE/TRANSFER)` | command `strm` field | page fault with CARD access: driver migrates to card and maps with `host=0` | vFPGA `axis_card_*` streams via striping |
 

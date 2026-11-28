@@ -292,7 +292,7 @@ void cThread::munmapFpga() noexcept {
     // Do nothing because protected function
 }
 
-void cThread::userMap(void *vaddr, uint64_t len, int32_t mem_block) {
+void cThread::userMap(void *vaddr, uint64_t len, int32_t mem_block, bool lazy_card_alloc) {
     if (mem_block != -1) {
         WARNING("Non-default values for mem_block " << mem_block << "are currently ignored");
     }
